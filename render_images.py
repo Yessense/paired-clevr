@@ -382,7 +382,7 @@ def render_image(img_features,
                 bpy.data.objects['Lamp_Fill'].location[i] += jitter
 
         # Now make some random objects
-        objects, blender_objects = add_object(scene_struct, img_features, args, camera)
+        objects, blender_objects = add_object(scene_struct, features[img], args, camera)
 
         # Render the scene and dump the scene data structure
         scene_struct['objects'] = objects
