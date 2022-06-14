@@ -7,11 +7,10 @@
 
 from __future__ import print_function
 
-import dataclasses
 import math, sys, random, argparse, json, os, tempfile
+from copy import copy
 from datetime import datetime as dt
 from collections import Counter
-from typing import Dict, List, Tuple
 
 """
 Renders random scenes using Blender, each with with a random number of objects;
@@ -92,11 +91,11 @@ parser.add_argument('--start_idx', default=0, type=int,
                     help="The index at which to start for numbering rendered images. Setting " +
                          "this to non-zero values allows you to distribute rendering across " +
                          "multiple machines and recombine the results later.")
-parser.add_argument('--num_images', default=5, type=int,
+parser.add_argument('--num_images', default=15, type=int,
                     help="The number of images to render")
-parser.add_argument('--filename_prefix', default='CLEVR',
+parser.add_argument('--filename_prefix', default='paired',
                     help="This prefix will be prepended to the rendered images and JSON scenes")
-parser.add_argument('--split', default='paired',
+parser.add_argument('--split', default='clevr',
                     help="Name of the split for which we are rendering. This will be added to " +
                          "the names of rendered images, and will also be stored in the JSON " +
                          "scene structure for each image.")
@@ -150,7 +149,7 @@ parser.add_argument('--fill_light_jitter', default=0.0, type=float,
                     help="The magnitude of random jitter to add to the fill light position.")
 parser.add_argument('--back_light_jitter', default=0.0, type=float,
                     help="The magnitude of random jitter to add to the back light position.")
-parser.add_argument('--camera_jitter', default=0.5, type=float,
+parser.add_argument('--camera_jitter', default=0.0, type=float,
                     help="The magnitude of random jitter to add to the camera position")
 
 parser.add_argument('--render_num_samples', default=512, type=int,
@@ -168,13 +167,14 @@ parser.add_argument('--render_tile_size', default=256, type=int,
 
 
 def main(args):
+    pair_creator = PairCreator(args)
+
     num_digits = 6
     prefix = '%s_%s_' % (args.filename_prefix, args.split)
     img_template = '%s%%0%dd.png' % (prefix, num_digits)
     scene_template = '%s%%0%dd.json' % (prefix, num_digits)
     blend_template = '%s%%0%dd.blend' % (prefix, num_digits)
 
-    img_template = os.path.join(args.output_image_dir, img_template)
     scene_template = os.path.join(args.output_scene_dir, scene_template)
     blend_template = os.path.join(args.output_blend_dir, blend_template)
 
@@ -188,27 +188,28 @@ def main(args):
 
     all_scene_paths = []
     for i in range(args.num_images):
+        print(i)
         img_path = img_template % (i + args.start_idx)
         scene_path = scene_template % (i + args.start_idx)
         all_scene_paths.append(scene_path)
         blend_path = None
         if args.save_blendfiles == 1:
             blend_path = blend_template % (i + args.start_idx)
-        num_objects = random.randint(args.min_objects, args.max_objects)
+        img_features, pair_features, index = pair_creator.create_pair_features()
 
-        render_scene(args,
-                     num_objects=num_objects,
+        render_image(img_features,
+                     args,
                      output_index=(i + args.start_idx),
                      output_split='img',
-                     output_image=img_path,
+                     output_image=os.path.join(args.output_image_dir, 'img_' + img_path),
                      output_scene=scene_path,
                      output_blendfile=blend_path,
                      )
-        render_scene(args,
-                     num_objects=num_objects,
+        render_image(pair_features,
+                     args,
                      output_index=(i + args.start_idx),
                      output_split='pair_img',
-                     output_image=img_path,
+                     output_image=os.path.join(args.output_image_dir, 'pair_' + img_path),
                      output_scene=scene_path,
                      output_blendfile=blend_path,
                      )
@@ -233,7 +234,7 @@ def main(args):
 
 
 class PairCreator:
-    def __init__(self):
+    def __init__(self, args):
         with open(args.properties_json, 'r') as f:
             # Properties
             properties = json.load(f)
@@ -243,7 +244,8 @@ class PairCreator:
             for name, rgb in properties['colors'].items():
                 rgba = [float(c) / 255.0 for c in rgb] + [1.0]
                 color_name_to_rgba[name] = rgba
-            self.color_name_to_rgba = color_name_to_rgba
+            self.color_name_to_rgba_dict = color_name_to_rgba
+            self.color_name_to_rgba = list(color_name_to_rgba.items())
 
             # Materials
             self.material_mapping = [(v, k) for k, v in properties['materials'].items()]
@@ -262,35 +264,63 @@ class PairCreator:
             self.features_to_exchange = ['color', 'material', 'shape', 'size', 'x', 'y']
 
     def create_pair_features(self):
-        feature = random.choice(self.features_to_exchange)
+        img_features = Features(color=random.choice(self.color_name_to_rgba),
+                                material=random.choice(self.material_mapping),
+                                shape=random.choice(self.object_mapping),
+                                size=random.choice(self.size_mapping),
+                                x=random.uniform(*self.x_span),
+                                y=random.uniform(*self.y_span),
+                                orientation=self.orientation)
 
-        if feature = 'color':
+        exchanged_feature = random.choice(self.features_to_exchange)
+
+        paired_features = Features(color=copy(img_features.color),
+                                   material=copy(img_features.material),
+                                   shape=copy(img_features.shape),
+                                   size=copy(img_features.size),
+                                   x=img_features.x,
+                                   y=img_features.y,
+                                   orientation=img_features.orientation)
+        if exchanged_feature == 'color':
+            while paired_features.color == img_features.color:
+                paired_features.color = random.choice(self.color_name_to_rgba)
+        elif exchanged_feature == 'material':
+            while paired_features.material == img_features.material:
+                paired_features.material = random.choice(self.material_mapping)
+        elif exchanged_feature == 'shape':
+            while paired_features.shape == img_features.shape:
+                paired_features.shape = random.choice(self.object_mapping)
+        elif exchanged_feature == 'size':
+            while paired_features.size == img_features.size:
+                paired_features.size = random.choice(self.size_mapping)
+        elif exchanged_feature == 'x':
+            paired_features.x = random.uniform(-3, 3)
+        elif exchanged_feature == 'y':
+            paired_features.y = random.uniform(-3, 3)
+        return img_features, paired_features, self.features_to_exchange.index(exchanged_feature)
 
 
-
-
-@dataclasses.dataclass
 class Features:
-    color: List[float]
-    material: Tuple[str, str]
-    shape: Tuple[str, str]
-    size: Tuple[str, int]
-    x: float
-    y: float
+    def __init__(self, color, material, shape, size, x, y, orientation):
+        self.orientation = orientation
+        self.y = y
+        self.x = x
+        self.size = size
+        self.shape = shape
+        self.material = material
+        self.color = color
 
 
-
-
-
-def render_scene(args,
-                 num_objects=1,
+def render_image(img_features: Features,
+                 args,
                  output_index=0,
                  output_split='none',
                  output_image='render.png',
                  output_scene='render_json',
-                 output_blendfile=None,
+                 output_blendfile=None
                  ):
     # Load the main blendfile
+
     bpy.ops.wm.open_mainfile(filepath=args.base_scene_blendfile)
 
     # Load materials
@@ -381,7 +411,7 @@ def render_scene(args,
             bpy.data.objects['Lamp_Fill'].location[i] += rand(args.fill_light_jitter)
 
     # Now make some random objects
-    objects, blender_objects = add_random_objects(scene_struct, num_objects, args, camera)
+    objects, blender_objects = add_object(scene_struct, img_features, args, camera)
 
     # Render the scene and dump the scene data structure
     scene_struct['objects'] = objects
@@ -400,129 +430,47 @@ def render_scene(args,
         bpy.ops.wm.save_as_mainfile(filepath=output_blendfile)
 
 
-def add_random_objects(scene_struct, num_objects, args, camera):
+def add_object(scene_struct, features: Features, args, camera):
     """
     Add random objects to the current blender scene
     """
-
-    # Load the property file
-    with open(args.properties_json, 'r') as f:
-        # Properties
-        properties = json.load(f)
-        # Color
-        color_name_to_rgba = {}
-        for name, rgb in properties['colors'].items():
-            rgba = [float(c) / 255.0 for c in rgb] + [1.0]
-            color_name_to_rgba[name] = rgba
-        # Materials
-        material_mapping = [(v, k) for k, v in properties['materials'].items()]
-        # Shapes
-        object_mapping = [(v, k) for k, v in properties['shapes'].items()]
-        # Sizes
-        size_mapping = list(properties['sizes'].items())
-
-    shape_color_combos = None
-    if args.shape_color_combos_json is not None:
-        with open(args.shape_color_combos_json, 'r') as f:
-            shape_color_combos = list(json.load(f).items())
-
-    # Generate N objects
-    positions = []
     objects = []
     blender_objects = []
-    for i in range(num_objects):
-        # Choose a random size
-        size_name, r = random.choice(size_mapping)
 
-        # Try to place the object, ensuring that we don't intersect any existing
-        # objects and that we are more than the desired margin away from all existing
-        # objects along all cardinal directions.
-        num_tries = 0
-        while True:
-            # If we try and fail to place an object too many times, then delete all
-            # the objects in the scene and start over.
-            num_tries += 1
-            if num_tries > args.max_retries:
-                for obj in blender_objects:
-                    utils.delete_object(obj)
-                return add_random_objects(scene_struct, num_objects, args, camera)
+    # Choose a random size
+    size_name, r = features.size
+    obj_name, obj_name_out = features.shape
+    color_name, rgba = features.color
+    mat_name, mat_name_out = features.material
+    x = features.x
+    y = features.y
 
-            x = random.uniform(-3, 3)
-            y = random.uniform(-3, 3)
+    # For cube, adjust the size a bit
+    if obj_name == 'Cube':
+        r /= math.sqrt(2)
 
-            # Check to make sure the new object is further than min_dist from all
-            # other objects, and further than margin along the four cardinal directions
-            dists_good = True
-            margins_good = True
-            for (xx, yy, rr) in positions:
-                dx, dy = x - xx, y - yy
-                dist = math.sqrt(dx * dx + dy * dy)
-                if dist - r - rr < args.min_dist:
-                    dists_good = False
-                    break
-                for direction_name in ['left', 'right', 'front', 'behind']:
-                    direction_vec = scene_struct['directions'][direction_name]
-                    assert direction_vec[2] == 0
-                    margin = dx * direction_vec[0] + dy * direction_vec[1]
-                    if 0 < margin < args.margin:
-                        print(margin, args.margin, direction_name)
-                        print('BROKEN MARGIN!')
-                        margins_good = False
-                        break
-                if not margins_good:
-                    break
+    # Choose random orientation for the object.
+    theta = 360.0 * features.orientation
 
-            if dists_good and margins_good:
-                break
+    # Actually add the object to the scene
+    utils.add_object(args.shape_dir, obj_name, r, (x, y), theta=theta)
+    obj = bpy.context.object
+    blender_objects.append(obj)
 
-        # Choose random color and shape
-        if shape_color_combos is None:
-            obj_name, obj_name_out = random.choice(object_mapping)
-            color_name, rgba = random.choice(list(color_name_to_rgba.items()))
-        else:
-            obj_name_out, color_choices = random.choice(shape_color_combos)
-            color_name = random.choice(color_choices)
-            obj_name = [k for k, v in object_mapping if v == obj_name_out][0]
-            rgba = color_name_to_rgba[color_name]
+    # Attach a random material
+    utils.add_material(mat_name, Color=rgba)
 
-        # For cube, adjust the size a bit
-        if obj_name == 'Cube':
-            r /= math.sqrt(2)
-
-        # Choose random orientation for the object.
-        theta = 360.0 * random.random()
-
-        # Actually add the object to the scene
-        utils.add_object(args.shape_dir, obj_name, r, (x, y), theta=theta)
-        obj = bpy.context.object
-        blender_objects.append(obj)
-        positions.append((x, y, r))
-
-        # Attach a random material
-        mat_name, mat_name_out = random.choice(material_mapping)
-        utils.add_material(mat_name, Color=rgba)
-
-        # Record data about the object in the scene data structure
-        pixel_coords = utils.get_camera_coords(camera, obj.location)
-        objects.append({
-            'shape': obj_name_out,
-            'size': size_name,
-            'material': mat_name_out,
-            '3d_coords': tuple(obj.location),
-            'rotation': theta,
-            'pixel_coords': pixel_coords,
-            'color': color_name,
-        })
-
-    # Check that all objects are at least partially visible in the rendered image
-    all_visible = check_visibility(blender_objects, args.min_pixels_per_object)
-    if not all_visible:
-        # If any of the objects are fully occluded then start over; delete all
-        # objects from the scene and place them all again.
-        print('Some objects are occluded; replacing objects')
-        for obj in blender_objects:
-            utils.delete_object(obj)
-        return add_random_objects(scene_struct, num_objects, args, camera)
+    # Record data about the object in the scene data structure
+    pixel_coords = utils.get_camera_coords(camera, obj.location)
+    objects.append({
+        'shape': obj_name_out,
+        'size': size_name,
+        'material': mat_name_out,
+        '3d_coords': tuple(obj.location),
+        'rotation': theta,
+        'pixel_coords': pixel_coords,
+        'color': color_name,
+    })
 
     return objects, blender_objects
 
