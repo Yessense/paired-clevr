@@ -112,11 +112,6 @@ parser.add_argument('--output_blend_dir', default='output/blendfiles',
                          "user requested that these files be saved using the " +
                          "--save_blendfiles flag; in this case it will be created if it does " +
                          "not already exist.")
-parser.add_argument('--save_blendfiles', type=int, default=0,
-                    help="Setting --save_blendfiles 1 will cause the blender scene file for " +
-                         "each generated image to be stored in the directory specified by " +
-                         "the --output_blend_dir flag. These files are not saved by default " +
-                         "because they take up ~5-10MB each.")
 parser.add_argument('--version', default='1.0',
                     help="String to store in the \"version\" field of the generated JSON file")
 parser.add_argument('--license',
@@ -143,13 +138,13 @@ parser.add_argument('--height', default=240, type=int,
                     help="The height (in pixels) for the rendered images")
 
 # Random camera position
-parser.add_argument('--key_light_jitter', default=0.0, type=float,
+parser.add_argument('--key_light_jitter', default=1.0, type=float,
                     help="The magnitude of random jitter to add to the key light position.")
-parser.add_argument('--fill_light_jitter', default=0.0, type=float,
+parser.add_argument('--fill_light_jitter', default=1.0, type=float,
                     help="The magnitude of random jitter to add to the fill light position.")
-parser.add_argument('--back_light_jitter', default=0.0, type=float,
+parser.add_argument('--back_light_jitter', default=1.0, type=float,
                     help="The magnitude of random jitter to add to the back light position.")
-parser.add_argument('--camera_jitter', default=0.0, type=float,
+parser.add_argument('--camera_jitter', default=0.5, type=float,
                     help="The magnitude of random jitter to add to the camera position")
 
 parser.add_argument('--render_num_samples', default=512, type=int,
@@ -170,49 +165,22 @@ def main(args):
     pair_creator = PairCreator(args)
 
     num_digits = 6
-    prefix = '%s_%s_' % (args.filename_prefix, args.split)
-    img_template = '%s%%0%dd.png' % (prefix, num_digits)
-    scene_template = '%s%%0%dd.json' % (prefix, num_digits)
-    blend_template = '%s%%0%dd.blend' % (prefix, num_digits)
 
-    scene_template = os.path.join(args.output_scene_dir, scene_template)
-    blend_template = os.path.join(args.output_blend_dir, blend_template)
+    img_extension = ".png"
+    scene_extension = ".json"
 
     # create directories if not exist
     if not os.path.isdir(args.output_image_dir):
         os.makedirs(args.output_image_dir)
     if not os.path.isdir(args.output_scene_dir):
         os.makedirs(args.output_scene_dir)
-    if args.save_blendfiles == 1 and not os.path.isdir(args.output_blend_dir):
-        os.makedirs(args.output_blend_dir)
 
     all_scene_paths = []
     for i in range(args.num_images):
-        print(i)
-        img_path = img_template % (i + args.start_idx)
-        scene_path = scene_template % (i + args.start_idx)
-        all_scene_paths.append(scene_path)
-        blend_path = None
-        if args.save_blendfiles == 1:
-            blend_path = blend_template % (i + args.start_idx)
         img_features, pair_features, index = pair_creator.create_pair_features()
-
-        render_image(img_features,
+        render_image(img_features, pair_features,
                      args,
-                     output_index=(i + args.start_idx),
-                     output_split='img',
-                     output_image=os.path.join(args.output_image_dir, 'img_' + img_path),
-                     output_scene=scene_path,
-                     output_blendfile=blend_path,
-                     )
-        render_image(pair_features,
-                     args,
-                     output_index=(i + args.start_idx),
-                     output_split='pair_img',
-                     output_image=os.path.join(args.output_image_dir, 'pair_' + img_path),
-                     output_scene=scene_path,
-                     output_blendfile=blend_path,
-                     )
+                     output_index=(i + args.start_idx))
 
     # After rendering all images, combine the JSON files for each scene into a
     # single JSON file.
@@ -311,123 +279,124 @@ class Features:
         self.color = color
 
 
-def render_image(img_features: Features,
-                 args,
-                 output_index=0,
-                 output_split='none',
-                 output_image='render.png',
-                 output_scene='render_json',
-                 output_blendfile=None
-                 ):
-    # Load the main blendfile
-
-    bpy.ops.wm.open_mainfile(filepath=args.base_scene_blendfile)
-
-    # Load materials
-    utils.load_materials(args.material_dir)
-
-    # Set render arguments so we can get pixel coordinates later.
-    # We use functionality specific to the CYCLES renderer so BLENDER_RENDER
-    # cannot be used.
-    render_args = bpy.context.scene.render
-    render_args.engine = "CYCLES"
-    render_args.filepath = output_image
-    render_args.resolution_x = args.width
-    render_args.resolution_y = args.height
-    render_args.resolution_percentage = 100
-    render_args.tile_x = args.render_tile_size
-    render_args.tile_y = args.render_tile_size
-    if args.use_gpu == 1:
-        # Blender changed the API for enabling CUDA at some point
-        if bpy.app.version < (2, 78, 0):
-            bpy.context.user_preferences.system.compute_device_type = 'CUDA'
-            bpy.context.user_preferences.system.compute_device = 'CUDA_0'
-        else:
-            cycles_prefs = bpy.context.user_preferences.addons['cycles'].preferences
-            cycles_prefs.compute_device_type = 'CUDA'
-
-    # Some CYCLES-specific stuff
-    bpy.data.worlds['World'].cycles.sample_as_light = True
-    bpy.context.scene.cycles.blur_glossy = 2.0
-    bpy.context.scene.cycles.samples = args.render_num_samples
-    bpy.context.scene.cycles.transparent_min_bounces = args.render_min_bounces
-    bpy.context.scene.cycles.transparent_max_bounces = args.render_max_bounces
-    if args.use_gpu == 1:
-        bpy.context.scene.cycles.device = 'GPU'
-
-    # This will give ground-truth information about the scene and its objects
-    scene_struct = {
-        'split': output_split,
-        'image_index': output_index,
-        'image_filename': os.path.basename(output_image),
-        'objects': [],
-        'directions': {},
-    }
-
-    # Put a plane on the ground so we can compute cardinal directions
-    bpy.ops.mesh.primitive_plane_add(radius=5)
-    plane = bpy.context.object
+def render_image(img_features,
+                 pair_features,
+                 output_index,
+                 args):
+    output_scene = os.path.join(args.output_scene_dir, '%s_%06d.json' % ('scene', output_index))
+    features = {'img': img_features, 'pair': pair_features}
 
     def rand(L):
         return 2.0 * L * (random.random() - 0.5)
+        # Add random jitter to camera position
 
-    # Add random jitter to camera position
-    if args.camera_jitter > 0:
-        for i in range(3):
-            bpy.data.objects['Camera'].location[i] += rand(args.camera_jitter)
+    camera_jitter = [rand(args.camera_jitter) for i in range(3)]
+    key_light_jitter = [rand(args.key_light_jitter) for i in range(3)]
+    back_light_jitter = [rand(args.back_light_jitter) for i in range(3)]
+    fill_light_jitter = [rand(args.fill_light_jitter) for i in range(3)]
+    scenes_struct = []
 
-    # Figure out the left, up, and behind directions along the plane and record
-    # them in the scene structure
-    camera = bpy.data.objects['Camera']
-    plane_normal = plane.data.vertices[0].normal
-    cam_behind = camera.matrix_world.to_quaternion() * Vector((0, 0, -1))
-    cam_left = camera.matrix_world.to_quaternion() * Vector((-1, 0, 0))
-    cam_up = camera.matrix_world.to_quaternion() * Vector((0, 1, 0))
-    plane_behind = (cam_behind - cam_behind.project(plane_normal)).normalized()
-    plane_left = (cam_left - cam_left.project(plane_normal)).normalized()
-    plane_up = cam_up.project(plane_normal).normalized()
+    for img in features:
+        output_image = os.path.join(args.output_image_dir, '%s_%06d.png' % (img, output_index))
+        # Load the main blendfile
+        bpy.ops.wm.open_mainfile(filepath=args.base_scene_blendfile)
 
-    # Delete the plane; we only used it for normals anyway. The base scene file
-    # contains the actual ground plane.
-    utils.delete_object(plane)
+        # Load materials
+        utils.load_materials(args.material_dir)
 
-    # Save all six axis-aligned directions in the scene struct
-    scene_struct['directions']['behind'] = tuple(plane_behind)
-    scene_struct['directions']['front'] = tuple(-plane_behind)
-    scene_struct['directions']['left'] = tuple(plane_left)
-    scene_struct['directions']['right'] = tuple(-plane_left)
-    scene_struct['directions']['above'] = tuple(plane_up)
-    scene_struct['directions']['below'] = tuple(-plane_up)
+        # Set render arguments so we can get pixel coordinates later.
+        # We use functionality specific to the CYCLES renderer so BLENDER_RENDER
+        # cannot be used.
+        render_args = bpy.context.scene.render
+        render_args.engine = "CYCLES"
+        render_args.filepath = output_image
+        render_args.resolution_x = args.width
+        render_args.resolution_y = args.height
+        render_args.resolution_percentage = 100
+        render_args.tile_x = args.render_tile_size
+        render_args.tile_y = args.render_tile_size
 
-    # Add random jitter to lamp positions
-    if args.key_light_jitter > 0:
-        for i in range(3):
-            bpy.data.objects['Lamp_Key'].location[i] += rand(args.key_light_jitter)
-    if args.back_light_jitter > 0:
-        for i in range(3):
-            bpy.data.objects['Lamp_Back'].location[i] += rand(args.back_light_jitter)
-    if args.fill_light_jitter > 0:
-        for i in range(3):
-            bpy.data.objects['Lamp_Fill'].location[i] += rand(args.fill_light_jitter)
+        if args.use_gpu == 1:
+            cycles_prefs = bpy.context.user_preferences.addons['cycles'].preferences
+            cycles_prefs.compute_device_type = 'CUDA'
 
-    # Now make some random objects
-    objects, blender_objects = add_object(scene_struct, img_features, args, camera)
+        # Some CYCLES-specific stuff
+        bpy.data.worlds['World'].cycles.sample_as_light = True
+        bpy.context.scene.cycles.blur_glossy = 2.0
+        bpy.context.scene.cycles.samples = args.render_num_samples
+        bpy.context.scene.cycles.transparent_min_bounces = args.render_min_bounces
+        bpy.context.scene.cycles.transparent_max_bounces = args.render_max_bounces
 
-    # Render the scene and dump the scene data structure
-    scene_struct['objects'] = objects
-    scene_struct['relationships'] = compute_all_relationships(scene_struct)
-    while True:
-        try:
-            bpy.ops.render.render(write_still=True)
-            break
-        except Exception as e:
-            print(e)
+        if args.use_gpu == 1:
+            bpy.context.scene.cycles.device = 'GPU'
+
+        # This will give ground-truth information about the scene and its objects
+        scene_struct = {
+            'image_index': output_index,
+            'image_filename': os.path.basename(output_image),
+            'objects': [],
+            'directions': {},
+        }
+
+        # Put a plane on the ground so we can compute cardinal directions
+        bpy.ops.mesh.primitive_plane_add(radius=5)
+        plane = bpy.context.object
+
+        # Add random jitter to camera position
+        if args.camera_jitter > 0:
+            for i, jitter in enumerate(camera_jitter):
+                bpy.data.objects['Camera'].location[i] += jitter
+
+        # Figure out the left, up, and behind directions along the plane and record
+        # them in the scene structure
+        camera = bpy.data.objects['Camera']
+        plane_normal = plane.data.vertices[0].normal
+        cam_behind = camera.matrix_world.to_quaternion() * Vector((0, 0, -1))
+        cam_left = camera.matrix_world.to_quaternion() * Vector((-1, 0, 0))
+        cam_up = camera.matrix_world.to_quaternion() * Vector((0, 1, 0))
+        plane_behind = (cam_behind - cam_behind.project(plane_normal)).normalized()
+        plane_left = (cam_left - cam_left.project(plane_normal)).normalized()
+        plane_up = cam_up.project(plane_normal).normalized()
+
+        # Delete the plane; we only used it for normals anyway. The base scene file
+        # contains the actual ground plane.
+        utils.delete_object(plane)
+
+        # Save all six axis-aligned directions in the scene struct
+        scene_struct['directions']['behind'] = tuple(plane_behind)
+        scene_struct['directions']['front'] = tuple(-plane_behind)
+        scene_struct['directions']['left'] = tuple(plane_left)
+        scene_struct['directions']['right'] = tuple(-plane_left)
+        scene_struct['directions']['above'] = tuple(plane_up)
+        scene_struct['directions']['below'] = tuple(-plane_up)
+
+        # Add random jitter to lamp positions
+        if args.key_light_jitter > 0:
+            for i, jitter in enumerate(key_light_jitter):
+                bpy.data.objects['Lamp_Key'].location[i] += jitter
+        if args.back_light_jitter > 0:
+            for i, jitter in enumerate(back_light_jitter):
+                bpy.data.objects['Lamp_Back'].location[i] += jitter
+        if args.fill_light_jitter > 0:
+            for i, jitter in enumerate(fill_light_jitter):
+                bpy.data.objects['Lamp_Fill'].location[i] += jitter
+
+        # Now make some random objects
+        objects, blender_objects = add_object(scene_struct, img_features, args, camera)
+
+        # Render the scene and dump the scene data structure
+        scene_struct['objects'] = objects
+        # scene_struct['relationships'] = compute_all_relationships(scene_struct)
+        while True:
+            try:
+                bpy.ops.render.render(write_still=True)
+                break
+            except Exception as e:
+                print(e)
+        scenes_struct.append(scene_struct)
 
     with open(output_scene, 'w') as f:
         json.dump(scene_struct, f, indent=2)
-
-    if output_blendfile is not None:
-        bpy.ops.wm.save_as_mainfile(filepath=output_blendfile)
 
 
 def add_object(scene_struct, features: Features, args, camera):
