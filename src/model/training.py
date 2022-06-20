@@ -70,8 +70,8 @@ train, test = train_test_split(numpy.arange(10000), test_size=0.1, random_state=
 train_dataset = PairedClevr(scenes_dir=args.scenes_path, img_dir=args.images_path, indices=train)
 test_dataset = PairedClevr(scenes_dir=args.scenes_path, img_dir=args.images_path, indices=test)
 
-train_loader = DataLoader(train_dataset, batch_size=args.batch_size, num_workers=1, shuffle=True)
-test_loader = DataLoader(test_dataset, batch_size=args.batch_size, num_workers=1)
+train_loader = DataLoader(train_dataset, batch_size=args.batch_size, num_workers=4, shuffle=True)
+test_loader = DataLoader(test_dataset, batch_size=args.batch_size, num_workers=4)
 
 # ------------------------------------------------------------
 # Load model

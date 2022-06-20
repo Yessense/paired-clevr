@@ -6,7 +6,7 @@ from torch import nn
 
 
 class Encoder(nn.Module):
-    def __init__(self, image_size: Tuple[int, int, int] = (1, 64, 64),
+    def __init__(self, image_size: Tuple[int, int, int] = (3, 64, 64),
                  latent_dim: int = 1024,
                  n_features: int = 5):
         super(Encoder, self).__init__()
