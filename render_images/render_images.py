@@ -48,19 +48,19 @@ if INSIDE_BLENDER:
 parser = argparse.ArgumentParser()
 
 # Input options
-parser.add_argument('--base_scene_blendfile', default='data/base_scene.blend',
+parser.add_argument('--base_scene_blendfile', default='dataset/base_scene.blend',
                     help="Base blender file on which all scenes are based; includes " +
                          "ground plane, lights, and camera.")
-parser.add_argument('--properties_json', default='data/properties.json',
+parser.add_argument('--properties_json', default='dataset/properties.json',
                     help="JSON file defining objects, materials, sizes, and colors. " +
                          "The \"colors\" field maps from CLEVR color names to RGB values; " +
                          "The \"sizes\" field maps from CLEVR size names to scalars used to " +
                          "rescale object models; the \"materials\" and \"shapes\" fields map " +
                          "from CLEVR material and shape names to .blend files in the " +
                          "--object_material_dir and --shape_dir directories respectively.")
-parser.add_argument('--shape_dir', default='data/shapes',
+parser.add_argument('--shape_dir', default='dataset/shapes',
                     help="Directory where .blend files for object models are stored")
-parser.add_argument('--material_dir', default='data/materials',
+parser.add_argument('--material_dir', default='dataset/materials',
                     help="Directory where .blend files for materials are stored")
 parser.add_argument('--shape_color_combos_json', default=None,
                     help="Optional path to a JSON file mapping shape names to a list of " +
@@ -91,7 +91,7 @@ parser.add_argument('--start_idx', default=0, type=int,
                     help="The index at which to start for numbering rendered images. Setting " +
                          "this to non-zero values allows you to distribute rendering across " +
                          "multiple machines and recombine the results later.")
-parser.add_argument('--num_images', default=15, type=int,
+parser.add_argument('--num_images', default=10000, type=int,
                     help="The number of images to render")
 parser.add_argument('--filename_prefix', default='paired',
                     help="This prefix will be prepended to the rendered images and JSON scenes")
@@ -99,15 +99,15 @@ parser.add_argument('--split', default='clevr',
                     help="Name of the split for which we are rendering. This will be added to " +
                          "the names of rendered images, and will also be stored in the JSON " +
                          "scene structure for each image.")
-parser.add_argument('--output_image_dir', default='./output/images/',
-                    help="The directory where output images will be stored. It will be " +
+parser.add_argument('--output_image_dir', default='../data/images/',
+                    help="The directory where data images will be stored. It will be " +
                          "created if it does not exist.")
-parser.add_argument('--output_scene_dir', default='./output/scenes/',
-                    help="The directory where output JSON scene structures will be stored. " +
+parser.add_argument('--output_scene_dir', default='../data/scenes/',
+                    help="The directory where data JSON scene structures will be stored. " +
                          "It will be created if it does not exist.")
-parser.add_argument('--output_scene_file', default='./output/CLEVR_scenes.json',
+parser.add_argument('--output_scene_file', default='../data/CLEVR_scenes.json',
                     help="Path to write a single JSON file containing all scene information")
-parser.add_argument('--output_blend_dir', default='output/blendfiles',
+parser.add_argument('--output_blend_dir', default='data/blendfiles',
                     help="The directory where blender scene files will be stored, if the " +
                          "user requested that these files be saved using the " +
                          "--save_blendfiles flag; in this case it will be created if it does " +
@@ -178,9 +178,10 @@ def main(args):
     all_scene_paths = []
     for i in range(args.num_images):
         img_features, pair_features, index = pair_creator.create_pair_features()
-        render_image(img_features, pair_features,
-                     args,
-                     output_index=(i + args.start_idx))
+        scene_path = render_image(img_features, pair_features,
+                                  i + args.start_idx,
+                                  args)
+        all_scene_paths.append(scene_path)
 
     # After rendering all images, combine the JSON files for each scene into a
     # single JSON file.
@@ -384,7 +385,7 @@ def render_image(img_features,
         # Now make some random objects
         objects, blender_objects = add_object(scene_struct, features[img], args, camera)
 
-        # Render the scene and dump the scene data structure
+        # Render the scene and dump the scene dataset structure
         scene_struct['objects'] = objects
         # scene_struct['relationships'] = compute_all_relationships(scene_struct)
         while True:
@@ -396,7 +397,8 @@ def render_image(img_features,
         scenes_struct.append(scene_struct)
 
     with open(output_scene, 'w') as f:
-        json.dump(scene_struct, f, indent=2)
+        json.dump(scenes_struct, f, indent=2)
+    return output_scene
 
 
 def add_object(scene_struct, features: Features, args, camera):
@@ -429,7 +431,7 @@ def add_object(scene_struct, features: Features, args, camera):
     # Attach a random material
     utils.add_material(mat_name, Color=rgba)
 
-    # Record data about the object in the scene data structure
+    # Record dataset about the object in the scene dataset structure
     pixel_coords = utils.get_camera_coords(camera, obj.location)
     objects.append({
         'shape': obj_name_out,
@@ -449,8 +451,8 @@ def compute_all_relationships(scene_struct, eps=0.2):
     Computes relationships between all pairs of objects in the scene.
 
     Returns a dictionary mapping string relationship names to lists of lists of
-    integers, where output[rel][i] gives a list of object indices that have the
-    relationship rel with object i. For example if j is in output['left'][i] then
+    integers, where data[rel][i] gives a list of object indices that have the
+    relationship rel with object i. For example if j is in data['left'][i] then
     object j is left of object i.
     """
     all_relationships = {}
@@ -477,7 +479,7 @@ def check_visibility(blender_objects, min_pixels_per_object):
     pixels; to accomplish this we assign random (but distinct) colors to all
     objects, and render using no lighting or shading or antialiasing; this
     ensures that each object is just a solid uniform color. We can then count
-    the number of pixels of each color in the output image to check the visibility
+    the number of pixels of each color in the data image to check the visibility
     of each object.
 
     Returns True if all objects are visible and False otherwise.

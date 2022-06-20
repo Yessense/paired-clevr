@@ -19,6 +19,10 @@ class PairedClevr(Dataset):
         self.features_size: int = 6
         self.indices = indices
 
+    @property
+    def size(self) -> int:
+        return self._size
+
     def __len__(self):
         return len(self.indices)
 

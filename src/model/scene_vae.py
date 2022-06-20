@@ -25,8 +25,8 @@ class ClevrVAE(pl.LightningModule):
         parser = parent_parser.add_argument_group("MnistSceneEncoder")
 
         # dataset options
-        parser.add_argument("--n_features", type=int, default=5)
-        parser.add_argument("--image_size", type=Tuple[int, int, int], default=(1, 64, 64))  # type: ignore
+        parser.add_argument("--n_features", type=int, default=6)
+        parser.add_argument("--image_size", type=Tuple[int, int, int], default=(3, 240, 320))  # type: ignore
 
         # model options
         parser.add_argument("--lr", type=float, default=0.001)
@@ -71,7 +71,7 @@ class ClevrVAE(pl.LightningModule):
         self.decoder = Decoder(latent_dim=latent_dim, image_size=image_size, n_features=n_features)
 
         # hd placeholders
-        self.hd_placeholders = torch.randn(1, 5, self.latent_dim)
+        self.hd_placeholders = torch.randn(1, self.n_features, self.latent_dim)
         if self.hd_norm:
             self.hd_placeholders /= torch.linalg.norm(self.hd_placeholders, dim=2).unsqueeze(-1)
 
@@ -83,7 +83,7 @@ class ClevrVAE(pl.LightningModule):
 
     def get_latent(self, x):
         mu, log_var = self.encoder(x.to(self.device))
-        z = mu.view(-1, 5, self.latent_dim)
+        z = mu.view(-1, self.n_features, self.latent_dim)
         z = torch.sum(z, dim=1)
         return z
 
@@ -101,7 +101,7 @@ class ClevrVAE(pl.LightningModule):
 
     def encode_features_inference(self, img):
         z, log_var = self.encoder(img)
-        z = z.view(-1, 5, self.latent_dim)
+        z = z.view(-1, self.n_features, self.latent_dim)
         mask = self.hd_placeholders.expand(z.size()).to(self.device)
         z = z * mask
         return z
@@ -109,7 +109,7 @@ class ClevrVAE(pl.LightningModule):
     def encode_features(self, img):
         mu, log_var = self.encoder(img)
         z = self.reparameterize(mu, log_var)
-        z = z.view(-1, 5, self.latent_dim)
+        z = z.view(-1, self.n_features, self.latent_dim)
         mask = self.hd_placeholders.expand(z.size()).to(self.device)
         z = z * mask
 

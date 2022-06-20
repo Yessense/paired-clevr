@@ -1,6 +1,7 @@
 import os.path
 import sys
 
+import numpy
 from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint, StochasticWeightAveraging
 from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader
@@ -21,7 +22,7 @@ DEFAULT_SEED = 42
 DEFAULT_DATASET_PATH = './dataset/data/'
 DEFAULT_IMAGES_DIR_PATH = os.path.join(DEFAULT_DATASET_PATH, 'images')
 DEFAULT_SCENES_DIR_PATH = os.path.join(DEFAULT_DATASET_PATH, 'scenes')
-DEFAULT_LOGGER_DIR_PATH = '../dataset/'
+DEFAULT_LOGGER_DIR_PATH = './'
 # ------------------------------------------------------------
 # Parse args
 # ------------------------------------------------------------
@@ -41,7 +42,7 @@ program_parser.add_argument("--images_path", type=str, default=DEFAULT_IMAGES_DI
 program_parser.add_argument("--scenes_path", type=str, default=DEFAULT_SCENES_DIR_PATH)
 
 # Experiment parameters
-program_parser.add_argument("--batch_size", type=int, default=4)
+program_parser.add_argument("--batch_size", type=int, default=2)
 program_parser.add_argument("--from_checkpoint", type=str, default='')
 program_parser.add_argument("--grad_clip", type=float, default=0.0)
 program_parser.add_argument("--seed", type=int, default=DEFAULT_SEED)
@@ -65,10 +66,12 @@ wandb_logger = WandbLogger(project='paired-clevr', log_model=args.log_model, sav
 # Load dataset
 # ------------------------------------------------------------
 
-dataset = PairedClevr(scenes_dir=args.scenes_path, img_dir=args.images_path)
-train, test = train_test_split(dataset, test_size=0.1, random_state=args.seed)
-train_loader = DataLoader(train, batch_size=args.batch_size, num_workers=2, shuffle=True)
-test_loader = DataLoader(test, batch_size=args.batch_size, num_workers=2)
+train, test = train_test_split(numpy.arange(10000), test_size=0.1, random_state=args.seed)
+train_dataset = PairedClevr(scenes_dir=args.scenes_path, img_dir=args.images_path, indices=train)
+test_dataset = PairedClevr(scenes_dir=args.scenes_path, img_dir=args.images_path, indices=test)
+
+train_loader = DataLoader(train_dataset, batch_size=args.batch_size, num_workers=1, shuffle=True)
+test_loader = DataLoader(test_dataset, batch_size=args.batch_size, num_workers=1)
 
 # ------------------------------------------------------------
 # Load model
