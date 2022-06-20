@@ -154,7 +154,7 @@ class ClevrVAE(pl.LightningModule):
         self.log("Validation Loss", loss[0], prog_bar=False)
 
         # 67 batches with 16
-        if idx % 20 == 0:
+        if idx % 10 == 0:
             self.logger.experiment.log({
                 "reconstruct/validation": [
                     wandb.Image(img1[0], caption='Val Image 1'),
