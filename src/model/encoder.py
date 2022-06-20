@@ -41,22 +41,22 @@ class Encoder(nn.Module):
 
         # Convolutional layers with activation
         x = self.activation(self.conv1(x))
-        print(f'Conv1 shape: {x.shape}')
+        # print(f'Conv1 shape: {x.shape}')
         x = self.activation(self.conv2(x))
-        print(f'Conv2 shape: {x.shape}')
+        # print(f'Conv2 shape: {x.shape}')
         x = self.activation(self.conv3(x))
-        print(f'Conv3 shape: {x.shape}')
+        # print(f'Conv3 shape: {x.shape}')
         x = self.activation(self.conv4(x))
-        print(f'Conv4 shape: {x.shape}')
+        # print(f'Conv4 shape: {x.shape}')
         x = self.activation(self.conv5(x))
-        print(f'Conv5 shape: {x.shape}')
+        # print(f'Conv5 shape: {x.shape}')
 
 
         # Fully connected layers with ReLu activations
         x = x.view((batch_size, -1))
-        print(f'View shape: {x.shape}')
+        # print(f'View shape: {x.shape}')
         x = self.activation(self.lin1(x))
-        print(f'Lin1 shape: {x.shape}')
+        # print(f'Lin1 shape: {x.shape}')
         # x = self.activation(self.lin2(x))
         # print(f'Lin2 shape: {x.shape}')
 

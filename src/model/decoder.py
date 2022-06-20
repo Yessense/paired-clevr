@@ -59,10 +59,10 @@ class Decoder(nn.Module):
         x = self.bn3(x)
         x = self.activation(self.convT2(x))
         x = self.bn2(x)
-        print(x.shape)
+        # print(x.shape)
 
         # Sigmoid activation for final conv layer
         x = self.final_activation(self.convT1(x))
-        print(x.shape)
+        # print(x.shape)
 
         return x
