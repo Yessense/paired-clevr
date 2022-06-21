@@ -247,7 +247,7 @@ class ClevrVAE(pl.LightningModule):
     def loss_f(self, r1, r2, scene1, scene2, mu, log_var):
         if self.loss_mode == 'mean':
             batch_size = r1.shape[0]
-            loss = torch.nn.BCELoss(reduction='mean')
+            loss = torch.nn.MSELoss(reduction='mean')
 
             l1 = loss(r1, scene1)
             l2 = loss(r2, scene2)
@@ -256,7 +256,7 @@ class ClevrVAE(pl.LightningModule):
             kld = -0.5 * torch.sum(1 + log_var - mu.pow(2) - log_var.exp())
             kld /= batch_size
         elif self.loss_mode == 'sum':
-            loss = torch.nn.BCELoss(reduction='sum')
+            loss = torch.nn.MSELoss(reduction='sum')
 
             l1 = loss(r1, scene1)
             l2 = loss(r2, scene2)
