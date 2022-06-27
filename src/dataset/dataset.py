@@ -10,7 +10,8 @@ import matplotlib.pyplot as plt
 
 
 class PairedClevr(Dataset):
-    def __init__(self, scenes_dir, img_dir, indices):
+    def __init__(self, scenes_dir, img_dir, indices, with_labels=False):
+        self.with_labels = with_labels
         self.scenes_dir = scenes_dir
         self.img_dir = img_dir
         self.img_template = "{name}_{idx:06d}.png"
@@ -27,7 +28,7 @@ class PairedClevr(Dataset):
     def __len__(self):
         return len(self.indices)
 
-    def __getitem__(self, index, values=False):
+    def __getitem__(self, index):
         idx = self.indices[index]
 
         item = []
@@ -61,7 +62,7 @@ class PairedClevr(Dataset):
             raise ValueError(f'All features are the same {obj1}, {obj2}')
         item.append(exchange_labels.unsqueeze(-1))
 
-        if values == True:
+        if self.with_labels == True:
             labels = []
             labels.append(obj1['shape'])
             labels.append(obj1['color'])
