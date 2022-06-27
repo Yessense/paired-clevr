@@ -102,7 +102,7 @@ class Experiment:
 
             r3 = self.model.decoder(z_exch)
             for j, img in enumerate([img1[0], r1[0], r3[0], r2[0], img2[0]]):
-                ax[i, j].imshow(img.detach().cpu().numpy(), cmap='gray')
+                ax[i, j].imshow(img.detach().cpu().numpy().transpose(1,2,0), cmap='gray')
                 if j == 0:
                     ax[i, j].set_ylabel(y_labels[i])
                 if i == 4:
