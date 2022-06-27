@@ -202,14 +202,15 @@ class Experiment:
         z = self.model.encode_features_inference(img.to(self.device))
 
         ax[0].imshow(img[0].detach().cpu().numpy().transpose(1, 2, 0), cmap='gray')
-        ax[0].set_axis_off()
+        x_labels = ('image', 'shape', 'color', 'size', 'material', 'x', 'y')
+        ax[0].set_xlabel(x_labels[0])
 
         for i in range(6):
             feature = z[:, i]
             r = self.model.decoder(feature)[0]
 
             ax[i + 1].imshow(r.detach().cpu().numpy().transpose(1, 2, 0), cmap='gray')
-            ax[i + 1].set_axis_off()
+            ax[i + 1].set_xlabel(x_labels[i + 1])
         fig.tight_layout()
         wandb.log({"Decode image from feature": plt})
 
