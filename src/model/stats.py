@@ -56,7 +56,7 @@ class Stats:
     def encode_vectors(self, batch_size: int = 128) -> Tuple[np.ndarray, np.ndarray]:
         """Encode all images in dataset"""
         features_list: List[torch.Tensor] = []
-        labels_list: List[] = []
+        labels_list: List = []
         dataloader = DataLoader(dataset=self.dataset, batch_size=batch_size)
 
         for image1, _, _, labels in dataloader:
