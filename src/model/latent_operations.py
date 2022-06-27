@@ -72,7 +72,7 @@ class Experiment:
     def exchange_feature(self, feat1, feat2, n_feature: Union[List[int]]):
         """ Exchange n-th feature between 2 sets of features"""
 
-        exchange_label = torch.ones(1, 5, 1024)
+        exchange_label = torch.ones(1, 6, 1024)
         exchange_label[:, n_feature, :] = 0
         exchange_label = exchange_label.to(self.model.device).bool()
 
