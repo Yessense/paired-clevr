@@ -71,7 +71,7 @@ class Stats:
 
             labels_list.append(np.array(labels))
 
-        return np.concatenate(features_list, axis=0), np.concatenate(labels_list, axis=0)
+        return np.concatenate(features_list, axis=0), np.concatenate(labels_list, axis=0, dtype=object)
 
     def visualize_feature(self, features: np.ndarray, labels: np.ndarray, n_feature: int, title: Optional[int] = None):
         """Visualize concrete feature specified by `n_feature`"""
