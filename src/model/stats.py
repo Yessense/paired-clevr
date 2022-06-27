@@ -9,6 +9,7 @@ import wandb
 from matplotlib import pyplot as plt  # type: ignore
 from torch.utils.data import DataLoader, Dataset
 
+import plotly.express as px
 sys.path.append("..")
 from src.dataset.dataset import PairedClevr  # type: ignore
 from src.model.scene_vae import ClevrVAE  # type: ignore
@@ -83,10 +84,8 @@ class Stats:
         tsne_result = tsne.fit_transform(features[:, n_feature])
         labels = labels[:, title]
 
-        plt.scatter(x=tsne_result[:, 0], y=tsne_result[:, 1], hue=labels)
-        plt.title(f'TSNE visualization of {self.dataset.features[n_feature]!r}')
-        plt.legend(title=self.dataset.features[title])
-        wandb.log({"Visualize feature": plt})
+        fig = px.scatter(x=tsne_result[:, 0], y=tsne_result[:, 1], color=labels, title=f'TSNE visualization of {self.dataset.features[n_feature]!r}')
+        wandb.log({"Visualize feature": fig})
 
     def visualize_objets(self, features: np.ndarray, labels: np.ndarray):
         """Visualize sum of features colored by feature"""
