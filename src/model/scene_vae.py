@@ -43,7 +43,7 @@ class ClevrVAE(pl.LightningModule):
         return parent_parser
 
     def __init__(self,
-                 n_features: int = 5,
+                 n_features: int = 6,
                  image_size: Tuple[int, int, int] = (1, 64, 64),
                  lr: float = 0.001,
                  kld_coef: float = 0.01,
