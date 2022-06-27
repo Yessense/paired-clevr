@@ -23,15 +23,15 @@ class Encoder(nn.Module):
         # Convolutional layers
         cnn_kwargs = dict(kernel_size=kernel_size, stride=2, padding=1)
         self.conv1 = nn.Conv2d(n_channels, 16, **cnn_kwargs)
-        self.batch_norm1 = nn.BatchNorm2d(16)
+        # self.batch_norm1 = nn.BatchNorm2d(16)
         self.conv2 = nn.Conv2d(16, 32, **cnn_kwargs)
-        self.batch_norm2 = nn.BatchNorm2d(32)
+        # self.batch_norm2 = nn.BatchNorm2d(32)
         self.conv3 = nn.Conv2d(32, 64, **cnn_kwargs)
-        self.batch_norm3 = nn.BatchNorm2d(64)
+        # self.batch_norm3 = nn.BatchNorm2d(64)
         self.conv4 = nn.Conv2d(64, 128, **cnn_kwargs)
-        self.batch_norm4 = nn.BatchNorm2d(128)
+        # self.batch_norm4 = nn.BatchNorm2d(128)
         self.conv5 = nn.Conv2d(128, 256, **cnn_kwargs)
-        self.batch_norm5 = nn.BatchNorm2d(256)
+        # self.batch_norm5 = nn.BatchNorm2d(256)
 
         self.out_shape = self.latent_dim * 2 * n_features
         # Fully connected layers
@@ -46,19 +46,19 @@ class Encoder(nn.Module):
 
         # Convolutional layers with activation
         x = self.activation(self.conv1(x))
-        x = self.batch_norm1(x)
+        # x = self.batch_norm1(x)
         # print(f'Conv1 shape: {x.shape}')
         x = self.activation(self.conv2(x))
-        x = self.batch_norm2(x)
+        # x = self.batch_norm2(x)
         # print(f'Conv2 shape: {x.shape}')
         x = self.activation(self.conv3(x))
-        x = self.batch_norm3(x)
+        # x = self.batch_norm3(x)
         # print(f'Conv3 shape: {x.shape}')
         x = self.activation(self.conv4(x))
-        x = self.batch_norm4(x)
+        # x = self.batch_norm4(x)
         # print(f'Conv4 shape: {x.shape}')
         x = self.activation(self.conv5(x))
-        x = self.batch_norm5(x)
+        # x = self.batch_norm5(x)
         # print(f'Conv5 shape: {x.shape}')
 
 
