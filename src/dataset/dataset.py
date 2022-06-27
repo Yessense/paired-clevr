@@ -1,6 +1,7 @@
 import json
 import os
 
+import numpy as np
 import torch
 import torchvision.io.image
 from torch.utils.data import Dataset
@@ -26,7 +27,7 @@ class PairedClevr(Dataset):
     def __len__(self):
         return len(self.indices)
 
-    def __getitem__(self, index):
+    def __getitem__(self, index, values=False):
         idx = self.indices[index]
 
         item = []
@@ -59,6 +60,17 @@ class PairedClevr(Dataset):
         else:
             raise ValueError(f'All features are the same {obj1}, {obj2}')
         item.append(exchange_labels.unsqueeze(-1))
+
+        if values == True:
+            labels = []
+            labels.append(obj1['shape'])
+            labels.append(obj1['color'])
+            labels.append(obj1['size'])
+            labels.append(obj1['material'])
+            labels.append(obj1['3d_coords'][0])
+            labels.append(obj1['3d_coords'][1])
+            labels = np.array(labels)
+            item.append(labels)
 
         return item
 
