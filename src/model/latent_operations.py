@@ -125,8 +125,8 @@ class Experiment:
 
         img1, _img, exchange_labels = batch1
         img2, _img, _exchange_labels = batch2
-        z1 = self.model.encode_features_latent(img1.to(self.device))
-        z2 = self.model.encode_features_latent(img2.to(self.device))
+        z1 = self.model.encode_features_inference(img1.to(self.device))
+        z2 = self.model.encode_features_inference(img2.to(self.device))
 
         r1 = self.model.decoder(torch.sum(z1, dim=1))
         r2 = self.model.decoder(torch.sum(z2, dim=1))
@@ -199,7 +199,7 @@ class Experiment:
         batch = next(iter(self.loader))
         img, _img, _exchange_labels = batch
 
-        z = self.model.encode_features_latent(img.to(self.device))
+        z = self.model.encode_features_inference(img.to(self.device))
 
         ax[0].imshow(img[0].detach().cpu().numpy().transpose(1, 2, 0), cmap='gray')
         ax[0].set_axis_off()
