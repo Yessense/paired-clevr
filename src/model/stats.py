@@ -78,6 +78,8 @@ class Stats:
         if title is None:
             title = n_feature
 
+        print(features.shape)
+        print(labels.shape)
         n_components = 2
         tsne = TSNE(n_components, learning_rate=1.2, init='pca', random_state=42)
         tsne_result = tsne.fit_transform(features[:, n_feature])
