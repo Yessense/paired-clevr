@@ -194,7 +194,7 @@ class Experiment:
         wandb.log({"Swap random features": plt})
 
     def decode_features(self):
-        fig, ax = plt.subplots(1, 6, figsize=(10, 8))
+        fig, ax = plt.subplots(1, 7, figsize=(10, 8))
 
         batch = next(iter(self.loader))
         img, _img, _exchange_labels = batch
