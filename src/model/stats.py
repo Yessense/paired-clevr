@@ -126,7 +126,7 @@ if __name__ == '__main__':
     features, labels = stats.encode_vectors(128)
 
     for i in range(n_features):
-        stats.visualize_feature(n_feature=i, features=features, labels=labels, title=1)
+        stats.visualize_feature(n_feature=i, features=features, labels=labels, title=0)
     stats.visualize_objets(features, labels)
 
     print("Done")
