@@ -81,7 +81,10 @@ class Stats:
         n_components = 2
         tsne = TSNE(n_components, learning_rate=1.2, init='pca', random_state=42)
         tsne_result = tsne.fit_transform(features[:, n_feature])
-        labels = labels[:, title]
+        if n_feature == 4 or n_feature == 5:
+            labels = labels[:, title].astype(float)
+        else:
+            labels = labels[:, title]
 
         fig = px.scatter(x=tsne_result[:, 0], y=tsne_result[:, 1], color=labels, title=f'TSNE visualization of {self.dataset.features[n_feature]!r}')
         wandb.log({"Visualize feature": fig})
@@ -97,7 +100,7 @@ class Stats:
                 color = labels[:, title].astype(float)
             else:
                 color = labels[:, title]
-            fig = px.scatter(x=tsne_result[:, 0], y=tsne_result[:, 1], color=color, title=f'TSNE visualization of object vectors colored by feature')
+            fig = px.scatter(x=tsne_result[:, 0], y=tsne_result[:, 1], color=color, title=f'TSNE visualization of object vectors colored by feature {self.dataset.features[title]}')
             wandb.log({"Visualize sum of features": fig})
 
     # def show_feature_mean_vectors(self, features: np.ndarray, labels: np.ndarray, feature: int):
