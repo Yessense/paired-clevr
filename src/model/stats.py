@@ -69,6 +69,7 @@ class Stats:
             features_list.append(features)
 
             labels_list.append(np.array([np.array(label,dtype=object) for label in labels], dtype=object))
+            print(labels_list.shape)
 
         return np.concatenate(features_list, axis=0), np.concatenate(labels_list, axis=0)
 
