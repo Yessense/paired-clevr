@@ -21,6 +21,10 @@ program_parser = parser.add_argument_group('program')
 program_parser.add_argument("--checkpoint_path", type=str,
                             default='/home/akorchemnyi/paired-clevr/src/paired-clevr/1voroobi/checkpoints/epoch=84-step=47854.ckpt')
 program_parser.add_argument("--batch_size", type=int, default=1)
+program_parser.add_argument("--one", type=int, default=1)
+program_parser.add_argument("--several", type=int, default=1)
+program_parser.add_argument("--random", type=int, default=1)
+program_parser.add_argument("--decode", type=int, default=1)
 
 # parse input
 args = parser.parse_args()
@@ -102,7 +106,7 @@ class Experiment:
 
             r3 = self.model.decoder(z_exch)
             for j, img in enumerate([img1[0], r1[0], r3[0], r2[0], img2[0]]):
-                ax[i, j].imshow(img.detach().cpu().numpy().transpose(1,2,0), cmap='gray')
+                ax[i, j].imshow(img.detach().cpu().numpy().transpose(1, 2, 0), cmap='gray')
                 if j == 0:
                     ax[i, j].set_ylabel(y_labels[i])
                 if i == 5:
@@ -110,11 +114,11 @@ class Experiment:
                 if j != 0 and i != 5:
                     ax[i, j].set_axis_off()
         fig.tight_layout()
-        wandb.log({"swap_one_feature": plt})
+        wandb.log({"Swap one feature": plt})
 
     def swap_several_features(self):
         """With given 2 images swap 0-5 features at a time"""
-        fig, ax = plt.subplots(6, 5, figsize=(10, 10))
+        fig, ax = plt.subplots(7, 5, figsize=(10, 10))
         batch1 = next(iter(self.loader))
         batch2 = next(iter(self.loader))
         names = ['Исходная сц. 1', 'Декодированная сц.1', 'Декодированная сц. 2', 'Исходная сц. 2']
@@ -127,10 +131,11 @@ class Experiment:
         r1 = self.model.decoder(torch.sum(z1, dim=1))
         r2 = self.model.decoder(torch.sum(z2, dim=1))
 
-        y_labels = ('None', 'Shp', 'Shp, Scl', 'Shp, Scl, O', 'Shp, Scl, O, X', 'Shp, Scl, O, X, Y')
+        y_labels = (
+        'None', 'Shp', 'Shp, Color', 'Shp, Col, Size', 'Shp, Col, Sz, M', 'Shp, Col, Sz, M, X', 'Shp, Col, Sz, M, X, Y')
         x_labels = ('Image 1', 'Reconstructed 1', 'Exchanged', 'Reconstructed 2', 'Image 2')
 
-        for i in range(6):
+        for i in range(7):
             z_exch = self.exchange_feature(z1, z2, list(range(i)))
 
             z_exch = torch.sum(z_exch, dim=1)
@@ -144,17 +149,17 @@ class Experiment:
                 if j != 0 and i != 5:
                     ax[i, j].set_axis_off()
         fig.tight_layout()
-        wanb.log({"swap_several_features": plt})
+        wandb.log({"Swap several features": plt})
 
     def swap_random_features(self):
-        short_y_labels = {0: 'Shp', 1: 'Scl', 2: 'O', 3: 'X', 4: 'Y'}
+        short_y_labels = {0: 'Shp', 1: 'Col', 2: 'Size', 3: 'Material', 4: 'X', 5: 'Y'}
 
         def make_y_label_name(idx):
             names = [short_y_labels[i] for i in idx]
             name = ", ".join(names)
             return name
 
-        fig, ax = plt.subplots(5, 5, figsize=(10, 10))
+        fig, ax = plt.subplots(6, 5, figsize=(10, 10))
 
         batch1 = next(iter(self.loader))
         batch2 = next(iter(self.loader))
@@ -169,8 +174,8 @@ class Experiment:
 
         x_labels = ('Image 1', 'Reconstructed 1', 'Exchanged', 'Reconstructed 2', 'Image 2')
 
-        for i in range(5):
-            sample = random.sample(list(range(5)), k=random.randrange(1, 4))
+        for i in range(6):
+            sample = random.sample(list(range(6)), k=random.randrange(1, 5))
 
             z_exch = self.exchange_feature(z1, z2, sample)
             z_exch = torch.sum(z_exch, dim=1)
@@ -180,12 +185,12 @@ class Experiment:
                 ax[i, j].imshow(img.detach().cpu().numpy().squeeze(0), cmap='gray')
                 if j == 0:
                     ax[i, j].set_ylabel(make_y_label_name(sample))
-                if i == 4:
+                if i == 5:
                     ax[i, j].set_xlabel(x_labels[j])
-                if j != 0 and i != 4:
+                if j != 0 and i != 5:
                     ax[i, j].set_axis_off()
         fig.tight_layout()
-        plt.show()
+        wandb.log({"Swap random features": plt})
 
     def decode_features(self):
         fig, ax = plt.subplots(1, 6, figsize=(10, 8))
@@ -198,29 +203,23 @@ class Experiment:
         ax[0].imshow(img[0].detach().cpu().numpy().squeeze(0), cmap='gray')
         ax[0].set_axis_off()
 
-        for i in range(5):
+        for i in range(6):
             feature = z[:, i]
             r = self.model.decoder(feature)[0]
 
             ax[i + 1].imshow(r.detach().cpu().numpy().squeeze(0), cmap='gray')
             ax[i + 1].set_axis_off()
         fig.tight_layout()
-        plt.show()
+        wandb.log({"Decode image from feature": plt})
 
 
 if __name__ == '__main__':
     experiment = Experiment(args.checkpoint_path)
-    experiment.swap_one_feature()
-    experiment.swap_one_feature()
-    experiment.swap_one_feature()
-    experiment.swap_one_feature()
-    # experiment.swap_several_features()
-    # experiment.swap_several_features()
-    # experiment.swap_random_features()
-    # experiment.swap_random_features()
-    # experiment.swap_random_features()
-    # experiment.swap_images()
-    # experiment.swap_images()
-    # experiment.decode_features()
-    # experiment.decode_features()
-    # experiment.decode_features()
+    for i in range(args.one):
+        experiment.swap_one_feature()
+    for i in range(args.random):
+        experiment.swap_random_features()
+    for i in range(args.several):
+        experiment.swap_several_features()
+    for i in range(args.decode):
+        experiment.decode_features()
