@@ -85,7 +85,7 @@ autoencoder = ClevrVAE(**dict_args)
 # Callbacks
 # ------------------------------------------------------------
 
-monitor = 'Total loss'
+monitor = 'Validation Loss'
 
 # early stop
 patience = 5
