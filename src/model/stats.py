@@ -60,7 +60,6 @@ class Stats:
         dataloader = DataLoader(dataset=self.dataset, batch_size=batch_size)
 
         for image1, _, _, labels in dataloader:
-
             image1 = image1.to(self.model.device)
             features = self.model.encoder(image1)
             features = self.model.reparameterize(*features)
@@ -68,11 +67,8 @@ class Stats:
             features = features.cpu().detach().numpy()
             features_list.append(features)
 
-            print(len(labels))
-            print(len(labels[0]))
-
+            labels = np.array([np.array(label, dtype=object) for label in labels], dtype=object).T
             labels_list.append(labels)
-
 
         return np.concatenate(features_list, axis=0), np.concatenate(labels_list, axis=0)
 
