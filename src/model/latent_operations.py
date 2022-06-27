@@ -93,10 +93,10 @@ class Experiment:
         r1 = self.model.decoder(torch.sum(z1, dim=1))
         r2 = self.model.decoder(torch.sum(z2, dim=1))
 
-        y_labels = ('shape', 'scale', 'orientation', 'posX', 'posY')
+        y_labels = ('shape', 'color', 'size', 'material', 'x', 'y')
         x_labels = ('Image 1', 'Reconstructed 1', 'Exchanged', 'Reconstructed 2', 'Image 2')
 
-        for i in range(5):
+        for i in range(6):
             z_exch = self.exchange_feature(z1, z2, i)
             z_exch = torch.sum(z_exch, dim=1)
 
@@ -110,7 +110,7 @@ class Experiment:
                 if j != 0 and i != 4:
                     ax[i, j].set_axis_off()
         fig.tight_layout()
-        wanb.log({"swap_one_feature": plt})
+        wandb.log({"swap_one_feature": plt})
 
     def swap_several_features(self):
         """With given 2 images swap 0-5 features at a time"""
