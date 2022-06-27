@@ -60,6 +60,7 @@ class Stats:
         dataloader = DataLoader(dataset=self.dataset, batch_size=batch_size)
 
         for image1, _, _, labels in dataloader:
+
             image1 = image1.to(self.model.device)
             features = self.model.encoder(image1)
             features = self.model.reparameterize(*features)

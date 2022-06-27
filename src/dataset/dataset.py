@@ -73,6 +73,8 @@ class PairedClevr(Dataset):
             labels = np.array(labels)
             item.append(labels)
 
+        for i in item:
+            print(type(i))
         return item
 
 
