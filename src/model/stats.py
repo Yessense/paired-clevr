@@ -94,10 +94,8 @@ class Stats:
         tsne_result = tsne.fit_transform(np.sum(features, axis=1))
 
         for title in range(6):
-            plt.scatter(x=tsne_result[:, 0], y=tsne_result[:, 1], hue=labels[:, title])
-            plt.title(f'TSNE visualization of object vectors colored by feature')
-            plt.legend(title=f'{self.dataset.features[title]}')
-            wandb.log({"Visualize sum of features": plt})
+            fig = px.scatter(x=tsne_result[:, 0], y=tsne_result[:, 1], color=labels[:, title], title=f'TSNE visualization of object vectors colored by feature')
+            wandb.log({"Visualize sum of features": fig})
 
     # def show_feature_mean_vectors(self, features: np.ndarray, labels: np.ndarray, feature: int):
     #     vectors = np.sum(features, axis=1)
@@ -124,7 +122,7 @@ if __name__ == '__main__':
     features, labels = stats.encode_vectors(128)
 
     for i in range(n_features):
-        stats.visualize_feature(n_feature=i, features=features, labels=labels, title=0)
+        stats.visualize_feature(n_feature=i, features=features, labels=labels)
     stats.visualize_objets(features, labels)
 
     print("Done")
