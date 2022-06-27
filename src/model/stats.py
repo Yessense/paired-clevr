@@ -14,7 +14,6 @@ from src.dataset.dataset import PairedClevr  # type: ignore
 from src.model.scene_vae import ClevrVAE  # type: ignore
 
 from sklearn.manifold import TSNE  # type: ignore
-import seaborn as sns  # type: ignore
 
 parser = ArgumentParser()
 
@@ -84,7 +83,7 @@ class Stats:
         tsne_result = tsne.fit_transform(features[:, n_feature])
         labels = labels[:, title]
 
-        sns.scatterplot(x=tsne_result[:, 0], y=tsne_result[:, 1], hue=labels)
+        plt.scatter(x=tsne_result[:, 0], y=tsne_result[:, 1], hue=labels)
         plt.title(f'TSNE visualization of {self.dataset.features[n_feature]!r}')
         plt.legend(title=self.dataset.features[title])
         wandb.log({"Visualize feature": plt})
@@ -96,7 +95,7 @@ class Stats:
         tsne_result = tsne.fit_transform(np.sum(features, axis=1))
 
         for title in range(6):
-            sns.scatterplot(x=tsne_result[:, 0], y=tsne_result[:, 1], hue=labels[:, title])
+            plt.scatter(x=tsne_result[:, 0], y=tsne_result[:, 1], hue=labels[:, title])
             plt.title(f'TSNE visualization of object vectors colored by feature')
             plt.legend(title=f'{self.dataset.features[title]}')
             wandb.log({"Visualize sum of features": plt})
