@@ -105,9 +105,9 @@ class Experiment:
                 ax[i, j].imshow(img.detach().cpu().numpy().transpose(1,2,0), cmap='gray')
                 if j == 0:
                     ax[i, j].set_ylabel(y_labels[i])
-                if i == 4:
+                if i == 5:
                     ax[i, j].set_xlabel(x_labels[j])
-                if j != 0 and i != 4:
+                if j != 0 and i != 5:
                     ax[i, j].set_axis_off()
         fig.tight_layout()
         wandb.log({"swap_one_feature": plt})
