@@ -76,7 +76,7 @@ class Experiment:
         out = torch.where(exchange_label, feat1, feat2)
         return out
 
-    def swap_one_feature(self, index):
+    def swap_one_feature(self):
         """With given 2 images swap one feature at a time for all features"""
         fig, ax = plt.subplots(5, 5, figsize=(10, 10))
         batch1 = next(iter(self.loader))
