@@ -68,8 +68,7 @@ class Stats:
             features = features.cpu().detach().numpy()
             features_list.append(features)
 
-
-            labels_list.append(np.array(labels, dtype=object))
+            labels_list.append(np.array([np.array(label,dtype=object) for label in labels], dtype=object))
 
         return np.concatenate(features_list, axis=0), np.concatenate(labels_list, axis=0)
 
