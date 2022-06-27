@@ -7,6 +7,7 @@ import numpy as np
 import torch
 import wandb
 from matplotlib import pyplot as plt  # type: ignore
+from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader, Dataset
 
 import plotly.express as px
@@ -117,7 +118,8 @@ class Stats:
 if __name__ == '__main__':
     n_features = 6
 
-    stats = Stats(args.checkpoint_path, allowed_indices=random.sample(list(range(10000)), 1000))
+    train, test = train_test_split(np.arange(10000), test_size=0.1, random_state=42)
+    stats = Stats(args.checkpoint_path, allowed_indices=test)
 
     features, labels = stats.encode_vectors(128)
 
