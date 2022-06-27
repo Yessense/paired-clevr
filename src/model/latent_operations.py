@@ -28,7 +28,7 @@ args = parser.parse_args()
 
 class Experiment:
     def __init__(self, checkpoint_path: str, cuda=True):
-        wanb.init(project="paired-clever-latent-operations")
+        wandb.init(project="paired-clever-latent-operations")
         self.device = torch.device('cuda:0')
         self.model = self.load_model_from_checkpoint(checkpoint_path)
         self.model.to(self.device)
