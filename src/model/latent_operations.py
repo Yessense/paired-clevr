@@ -132,7 +132,8 @@ class Experiment:
         r2 = self.model.decoder(torch.sum(z2, dim=1))
 
         y_labels = (
-        'None', 'Shp', 'Shp, Color', 'Shp, Col, Size', 'Shp, Col, Sz, M', 'Shp, Col, Sz, M, X', 'Shp, Col, Sz, M, X, Y')
+            'None', 'Shp', 'Shp, Color', 'Shp, Col, Size', 'Shp, Col, Sz, M', 'Shp, Col, Sz, M, X',
+            'Shp, Col, Sz, M, X, Y')
         x_labels = ('Image 1', 'Reconstructed 1', 'Exchanged', 'Reconstructed 2', 'Image 2')
 
         for i in range(7):
@@ -141,7 +142,7 @@ class Experiment:
             z_exch = torch.sum(z_exch, dim=1)
             r3 = self.model.decoder(z_exch)
             for j, img in enumerate([img1[0], r1[0], r3[0], r2[0], img2[0]]):
-                ax[i, j].imshow(img.detach().cpu().numpy().squeeze(0), cmap='gray')
+                ax[i, j].imshow(img.detach().cpu().numpy().transpose(1, 2, 0), cmap='gray')
                 if j == 0:
                     ax[i, j].set_ylabel(y_labels[i])
                 if i == 5:
@@ -182,7 +183,7 @@ class Experiment:
 
             reconstruction = self.model.decoder(z_exch)
             for j, img in enumerate([img1[0], r1[0], reconstruction[0], r2[0], img2[0]]):
-                ax[i, j].imshow(img.detach().cpu().numpy().squeeze(0), cmap='gray')
+                ax[i, j].imshow(img.detach().cpu().numpy().transpose(1, 2, 0), cmap='gray')
                 if j == 0:
                     ax[i, j].set_ylabel(make_y_label_name(sample))
                 if i == 5:
@@ -200,14 +201,14 @@ class Experiment:
 
         z = self.model.encode_features_latent(img.to(self.device))
 
-        ax[0].imshow(img[0].detach().cpu().numpy().squeeze(0), cmap='gray')
+        ax[0].imshow(img[0].detach().cpu().numpy().transpose(1, 2, 0), cmap='gray')
         ax[0].set_axis_off()
 
         for i in range(6):
             feature = z[:, i]
             r = self.model.decoder(feature)[0]
 
-            ax[i + 1].imshow(r.detach().cpu().numpy().squeeze(0), cmap='gray')
+            ax[i + 1].imshow(r.detach().cpu().numpy().transpose(1, 2, 0), cmap='gray')
             ax[i + 1].set_axis_off()
         fig.tight_layout()
         wandb.log({"Decode image from feature": plt})
