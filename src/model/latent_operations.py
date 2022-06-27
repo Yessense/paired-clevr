@@ -7,8 +7,8 @@ import torch
 from matplotlib import pyplot as plt
 from torch.utils.data import DataLoader
 
-from .dataset.dataset import PairedClevr
-from .model.scene_vae import ClevrVAE
+from src.dataset.dataset import PairedClevr
+from src.model.scene_vae import ClevrVAE
 import wandb
 
 parser = ArgumentParser()
