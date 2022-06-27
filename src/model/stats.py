@@ -41,7 +41,7 @@ class Stats:
                                    img_dir='./dataset/data/images', indices=self.allowed_indices)
         self.loader = DataLoader(self.dataset, batch_size=args.batch_size, num_workers=1, shuffle=True)
 
-    def load_model_from_checkpoint(self, checkpoint_path: str) -> DspritesVAE:
+    def load_model_from_checkpoint(self, checkpoint_path: str) -> ClevrVAE:
         ckpt = torch.load(checkpoint_path, map_location=self.device)
 
         hyperparams = ckpt['hyper_parameters']
