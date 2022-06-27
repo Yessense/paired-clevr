@@ -19,7 +19,7 @@ parser = ArgumentParser()
 # add PROGRAM level args
 program_parser = parser.add_argument_group('program')
 program_parser.add_argument("--checkpoint_path", type=str,
-                            default='./model/checkpoints/')
+                            default='/home/akorchemnyi/paired-clevr/src/paired-clevr/1voroobi/checkpoints/epoch=84-step=47854.ckpt')
 program_parser.add_argument("--batch_size", type=int, default=1)
 
 # parse input
