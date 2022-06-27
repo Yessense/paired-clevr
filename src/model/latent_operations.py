@@ -81,7 +81,7 @@ class Experiment:
 
     def swap_one_feature(self):
         """With given 2 images swap one feature at a time for all features"""
-        fig, ax = plt.subplots(5, 5, figsize=(10, 10))
+        fig, ax = plt.subplots(6, 5, figsize=(10, 10))
         batch1 = next(iter(self.loader))
         batch2 = next(iter(self.loader))
 
