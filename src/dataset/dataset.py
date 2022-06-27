@@ -70,7 +70,7 @@ class PairedClevr(Dataset):
             labels.append(obj1['material'])
             labels.append(obj1['3d_coords'][0])
             labels.append(obj1['3d_coords'][1])
-            item.append(labels)
+            item.append(np.array(labels,dtype=object))
 
         return item
 
