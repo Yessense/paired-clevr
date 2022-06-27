@@ -1,4 +1,5 @@
 import random
+import sys
 from argparse import ArgumentParser
 from typing import Union, List, Tuple, Optional
 import numpy as np
@@ -8,8 +9,9 @@ import wandb
 from matplotlib import pyplot as plt  # type: ignore
 from torch.utils.data import DataLoader, Dataset
 
-from src.dataset.dataset import Dsprites, PairedClevr  # type: ignore
-from src.model.scene_vae import DspritesVAE, ClevrVAE  # type: ignore
+sys.path.append("..")
+from src.dataset.dataset import PairedClevr  # type: ignore
+from src.model.scene_vae import ClevrVAE  # type: ignore
 
 from sklearn.manifold import TSNE  # type: ignore
 import seaborn as sns  # type: ignore
