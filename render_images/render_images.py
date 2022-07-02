@@ -68,9 +68,9 @@ parser.add_argument('--shape_color_combos_json', default=None,
                          "for CLEVR-CoGenT.")
 
 # Settings for objects
-parser.add_argument('--min_objects', default=1, type=int,
+parser.add_argument('--min_objects', default=3, type=int,
                     help="The minimum number of objects to place in each scene")
-parser.add_argument('--max_objects', default=1, type=int,
+parser.add_argument('--max_objects', default=10, type=int,
                     help="The maximum number of objects to place in each scene")
 parser.add_argument('--min_dist', default=0.25, type=float,
                     help="The minimum allowed distance between object centers")
@@ -232,7 +232,7 @@ class PairCreator:
 
             self.features_to_exchange = ['color', 'material', 'shape', 'size', 'x', 'y']
 
-    def create_pair_features(self):
+    def create_random_features(self):
         img_features = Features(color=random.choice(self.color_name_to_rgba),
                                 material=random.choice(self.material_mapping),
                                 shape=random.choice(self.object_mapping),
@@ -240,6 +240,10 @@ class PairCreator:
                                 x=random.uniform(*self.x_span),
                                 y=random.uniform(*self.y_span),
                                 orientation=self.orientation)
+        return img_features
+
+    def create_pair_features(self):
+        img_features = self.create_random_features()
 
         exchanged_feature = random.choice(self.features_to_exchange)
 
@@ -283,6 +287,7 @@ class Features:
 def render_image(img_features,
                  pair_features,
                  output_index,
+                 pair_creator,
                  args):
     output_scene = os.path.join(args.output_scene_dir, '%s_%06d.json' % ('scene', output_index))
     features = {'img': img_features, 'pair': pair_features}
@@ -296,6 +301,35 @@ def render_image(img_features,
     back_light_jitter = [rand(args.back_light_jitter) for i in range(3)]
     fill_light_jitter = [rand(args.fill_light_jitter) for i in range(3)]
     scenes_struct = []
+
+    n_objects_on_scene = random.randint(args.min_objects - 2, args.max_objects - 2)
+
+    for new_object_num in range(1, n_objects_on_scene + 1):
+        add_image = True
+
+        num_tries = 0
+        while True:
+            new_object_features = pair_creator.create_random_features()
+            if num_tries > args.max_retries:
+                add_image = False
+                break
+            else:
+                dists_good = True
+                for image_features in features.values():
+                    xx, yy, rr = image_features.x, image_features.y, image_features.size[1]
+                    x, y, r = new_object_features.x, new_object_features.y, new_object_features.size[1]
+                    dx, dy = x - xx, y - yy
+                    dist = math.sqrt(dx * dx + dy * dy)
+                    if dist - r - rr < args.min_dist:
+                        dists_good = False
+                        break
+                if dists_good:
+                    break
+                else:
+                    num_tries += 1
+                    continue
+        if add_image:
+            features[f'obj{new_object_num}'] = new_object_features
 
     for img in features:
         output_image = os.path.join(args.output_image_dir, '%s_%06d.png' % (img, output_index))
@@ -383,10 +417,10 @@ def render_image(img_features,
                 bpy.data.objects['Lamp_Fill'].location[i] += jitter
 
         # Now make some random objects
-        objects, blender_objects = add_object(scene_struct, features[img], args, camera)
+        object, blender_object = add_object(features[img], args, camera)
 
         # Render the scene and dump the scene dataset structure
-        scene_struct['objects'] = objects
+        scene_struct['objects'] = object
         # scene_struct['relationships'] = compute_all_relationships(scene_struct)
         while True:
             try:
@@ -401,7 +435,7 @@ def render_image(img_features,
     return output_scene
 
 
-def add_object(scene_struct, features: Features, args, camera):
+def add_object(features: Features, args, camera):
     """
     Add random objects to the current blender scene
     """
