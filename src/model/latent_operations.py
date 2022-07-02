@@ -36,8 +36,8 @@ class Experiment:
         self.device = torch.device('cuda:0')
         self.model = self.load_model_from_checkpoint(checkpoint_path)
         self.model.to(self.device)
-        self.dataset = PairedClevr(scenes_dir='./dataset/data/scenes',
-                                   img_dir='./dataset/data/images', indices=list(range(10000)))
+        self.dataset = PairedClevr(scenes_dir='./dataset/dataset/scenes',
+                                   img_dir='./dataset/dataset/images', indices=list(range(10000)))
         self.loader = DataLoader(self.dataset, batch_size=args.batch_size, num_workers=1, shuffle=True)
         self.img_template = "{name}_{idx:06d}.png"
 

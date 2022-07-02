@@ -77,8 +77,8 @@ class PairedClevr(Dataset):
 
 
 if __name__ == '__main__':
-    dataset = PairedClevr(scenes_dir='./dataset/data/scenes',
-                          img_dir='./dataset/data/images', indices=list(range(10000)))
+    dataset = PairedClevr(scenes_dir='./dataset/dataset/scenes',
+                          img_dir='./dataset/dataset/images', indices=list(range(10000)))
     start_idx = 300
     n_images = 2
 

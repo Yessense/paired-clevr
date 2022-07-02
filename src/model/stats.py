@@ -38,8 +38,8 @@ class Stats:
         self.model = self.load_model_from_checkpoint(checkpoint_path)
         self.model.to(self.device)
         self.allowed_indices = allowed_indices
-        self.dataset = PairedClevr(scenes_dir='./dataset/data/scenes',
-                                   img_dir='./dataset/data/images', indices=self.allowed_indices, with_labels=True)
+        self.dataset = PairedClevr(scenes_dir='./dataset/dataset/scenes',
+                                   img_dir='./dataset/dataset/images', indices=self.allowed_indices, with_labels=True)
         self.loader = DataLoader(self.dataset, batch_size=args.batch_size, num_workers=1, shuffle=True)
 
     def load_model_from_checkpoint(self, checkpoint_path: str) -> ClevrVAE:

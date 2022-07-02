@@ -143,7 +143,7 @@ def add_material(name, **properties):
   assert len(obj.data.materials) == 0
   obj.data.materials.append(mat)
 
-  # Find the data node of the new material
+  # Find the dataset node of the new material
   output_node = None
   for n in mat.node_tree.nodes:
     if n.name == 'Material Output':
@@ -163,7 +163,7 @@ def add_material(name, **properties):
     if inp.name in properties:
       inp.default_value = properties[inp.name]
 
-  # Wire the data of the new group node to the input of
+  # Wire the dataset of the new group node to the input of
   # the MaterialOutput node
   mat.node_tree.links.new(
       group_node.outputs['Shader'],

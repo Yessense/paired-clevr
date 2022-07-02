@@ -12,12 +12,12 @@ During rendering, each CLEVR scene file is dumped to disk as a separate JSON
 file; this is convenient for distributing rendering across multiple machines.
 This script collects all CLEVR scene files stored in a directory and combines
 them into a single JSON file. This script also adds the version number, date,
-and license to the data file.
+and license to the dataset file.
 """
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--input_dir', default='data/scenes')
-parser.add_argument('--output_file', default='data/CLEVR_misc_scenes.json')
+parser.add_argument('--input_dir', default='dataset/scenes')
+parser.add_argument('--output_file', default='dataset/CLEVR_misc_scenes.json')
 parser.add_argument('--version', default='1.0')
 parser.add_argument('--date', default='7/8/2017')
 parser.add_argument('--license',

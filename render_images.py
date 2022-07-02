@@ -91,7 +91,7 @@ parser.add_argument('--start_idx', default=0, type=int,
                     help="The index at which to start for numbering rendered images. Setting " +
                          "this to non-zero values allows you to distribute rendering across " +
                          "multiple machines and recombine the results later.")
-parser.add_argument('--num_images', default=10000, type=int,
+parser.add_argument('--num_images', default=2, type=int,
                     help="The number of images to render")
 parser.add_argument('--filename_prefix', default='paired',
                     help="This prefix will be prepended to the rendered images and JSON scenes")
@@ -99,15 +99,15 @@ parser.add_argument('--split', default='clevr',
                     help="Name of the split for which we are rendering. This will be added to " +
                          "the names of rendered images, and will also be stored in the JSON " +
                          "scene structure for each image.")
-parser.add_argument('--output_image_dir', default='../data/images/',
-                    help="The directory where data images will be stored. It will be " +
+parser.add_argument('--output_image_dir', default='../dataset/images/',
+                    help="The directory where dataset images will be stored. It will be " +
                          "created if it does not exist.")
-parser.add_argument('--output_scene_dir', default='../data/scenes/',
-                    help="The directory where data JSON scene structures will be stored. " +
+parser.add_argument('--output_scene_dir', default='../dataset/scenes/',
+                    help="The directory where dataset JSON scene structures will be stored. " +
                          "It will be created if it does not exist.")
-parser.add_argument('--output_scene_file', default='../data/CLEVR_scenes.json',
+parser.add_argument('--output_scene_file', default='../dataset/CLEVR_scenes.json',
                     help="Path to write a single JSON file containing all scene information")
-parser.add_argument('--output_blend_dir', default='data/blendfiles',
+parser.add_argument('--output_blend_dir', default='dataset/blendfiles',
                     help="The directory where blender scene files will be stored, if the " +
                          "user requested that these files be saved using the " +
                          "--save_blendfiles flag; in this case it will be created if it does " +
@@ -179,7 +179,7 @@ def main(args):
     for i in range(args.num_images):
         img_features, pair_features, index = pair_creator.create_pair_features()
         scene_path = render_image(img_features, pair_features,
-                                  i + args.start_idx,
+                                  i + args.start_idx,pair_creator,
                                   args)
         all_scene_paths.append(scene_path)
 
@@ -329,7 +329,8 @@ def render_image(img_features,
                     num_tries += 1
                     continue
         if add_image:
-            features[f'obj{new_object_num}'] = new_object_features
+            obj_name = 'obj{number}'.format(number=new_object_num)
+            features[obj_name] = new_object_features
 
     for img in features:
         output_image = os.path.join(args.output_image_dir, '%s_%06d.png' % (img, output_index))
@@ -430,6 +431,102 @@ def render_image(img_features,
                 print(e)
         scenes_struct.append(scene_struct)
 
+    output_image = os.path.join(args.output_image_dir, '%s_%06d.png' % ('scene', output_index))
+    # Load the main blendfile
+    bpy.ops.wm.open_mainfile(filepath=args.base_scene_blendfile)
+    # Load materials
+    utils.load_materials(args.material_dir)
+    # Set render arguments so we can get pixel coordinates later.
+    # We use functionality specific to the CYCLES renderer so BLENDER_RENDER
+    # cannot be used.
+    render_args = bpy.context.scene.render
+    render_args.engine = "CYCLES"
+    render_args.filepath = output_image
+    render_args.resolution_x = args.width
+    render_args.resolution_y = args.height
+    render_args.resolution_percentage = 100
+    render_args.tile_x = args.render_tile_size
+    render_args.tile_y = args.render_tile_size
+
+    if args.use_gpu == 1:
+        cycles_prefs = bpy.context.user_preferences.addons['cycles'].preferences
+        cycles_prefs.compute_device_type = 'CUDA'
+
+    # Some CYCLES-specific stuff
+    bpy.dataset.worlds['World'].cycles.sample_as_light = True
+    bpy.context.scene.cycles.blur_glossy = 2.0
+    bpy.context.scene.cycles.samples = args.render_num_samples
+    bpy.context.scene.cycles.transparent_min_bounces = args.render_min_bounces
+    bpy.context.scene.cycles.transparent_max_bounces = args.render_max_bounces
+
+    if args.use_gpu == 1:
+        bpy.context.scene.cycles.device = 'GPU'
+
+    # This will give ground-truth information about the scene and its objects
+    scene_struct = {
+        'image_index': output_index,
+        'image_filename': os.path.basename(output_image),
+        'objects': [],
+        'directions': {},
+    }
+
+    # Put a plane on the ground so we can compute cardinal directions
+    bpy.ops.mesh.primitive_plane_add(radius=5)
+    plane = bpy.context.object
+
+    # Add random jitter to camera position
+    if args.camera_jitter > 0:
+        for i, jitter in enumerate(camera_jitter):
+            bpy.dataset.objects['Camera'].location[i] += jitter
+
+    # Figure out the left, up, and behind directions along the plane and record
+    # them in the scene structure
+    camera = bpy.dataset.objects['Camera']
+    plane_normal = plane.dataset.vertices[0].normal
+    cam_behind = camera.matrix_world.to_quaternion() * Vector((0, 0, -1))
+    cam_left = camera.matrix_world.to_quaternion() * Vector((-1, 0, 0))
+    cam_up = camera.matrix_world.to_quaternion() * Vector((0, 1, 0))
+    plane_behind = (cam_behind - cam_behind.project(plane_normal)).normalized()
+    plane_left = (cam_left - cam_left.project(plane_normal)).normalized()
+    plane_up = cam_up.project(plane_normal).normalized()
+
+    # Delete the plane; we only used it for normals anyway. The base scene file
+    # contains the actual ground plane.
+    utils.delete_object(plane)
+
+    # Save all six axis-aligned directions in the scene struct
+    scene_struct['directions']['behind'] = tuple(plane_behind)
+    scene_struct['directions']['front'] = tuple(-plane_behind)
+    scene_struct['directions']['left'] = tuple(plane_left)
+    scene_struct['directions']['right'] = tuple(-plane_left)
+    scene_struct['directions']['above'] = tuple(plane_up)
+    scene_struct['directions']['below'] = tuple(-plane_up)
+
+    # Add random jitter to lamp positions
+    if args.key_light_jitter > 0:
+        for i, jitter in enumerate(key_light_jitter):
+            bpy.dataset.objects['Lamp_Key'].location[i] += jitter
+    if args.back_light_jitter > 0:
+        for i, jitter in enumerate(back_light_jitter):
+            bpy.dataset.objects['Lamp_Back'].location[i] += jitter
+    if args.fill_light_jitter > 0:
+        for i, jitter in enumerate(fill_light_jitter):
+            bpy.dataset.objects['Lamp_Fill'].location[i] += jitter
+
+    # Now make some random objects
+    object, blender_object = add_objects(features[img], args, camera)
+
+    # Render the scene and dump the scene dataset structure
+    scene_struct['objects'] = object
+    # scene_struct['relationships'] = compute_all_relationships(scene_struct)
+    while True:
+        try:
+            bpy.ops.render.render(write_still=True)
+            break
+        except Exception as e:
+            print(e)
+    scenes_struct.append(scene_struct)
+
     with open(output_scene, 'w') as f:
         json.dump(scenes_struct, f, indent=2)
     return output_scene
@@ -485,8 +582,8 @@ def compute_all_relationships(scene_struct, eps=0.2):
     Computes relationships between all pairs of objects in the scene.
 
     Returns a dictionary mapping string relationship names to lists of lists of
-    integers, where data[rel][i] gives a list of object indices that have the
-    relationship rel with object i. For example if j is in data['left'][i] then
+    integers, where dataset[rel][i] gives a list of object indices that have the
+    relationship rel with object i. For example if j is in dataset['left'][i] then
     object j is left of object i.
     """
     all_relationships = {}
@@ -513,7 +610,7 @@ def check_visibility(blender_objects, min_pixels_per_object):
     pixels; to accomplish this we assign random (but distinct) colors to all
     objects, and render using no lighting or shading or antialiasing; this
     ensures that each object is just a solid uniform color. We can then count
-    the number of pixels of each color in the data image to check the visibility
+    the number of pixels of each color in the dataset image to check the visibility
     of each object.
 
     Returns True if all objects are visible and False otherwise.
