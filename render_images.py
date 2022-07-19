@@ -62,7 +62,7 @@ parser.add_argument('--shape_dir', default='dataset/shapes',
                     help="Directory where .blend files for object models are stored")
 parser.add_argument('--material_dir', default='dataset/materials',
                     help="Directory where .blend files for materials are stored")
-parser.add_argument('--shape_color_combos_json', default=None,
+parser.add_argument('--shape_color_combos_json', default='/home/yessense/projects/paired-clevr/dataset/CoGenT_A.json',
                     help="Optional path to a JSON file mapping shape names to a list of " +
                          "allowed color names for that shape. This allows rendering images " +
                          "for CLEVR-CoGenT.")
@@ -91,7 +91,7 @@ parser.add_argument('--start_idx', default=0, type=int,
                     help="The index at which to start for numbering rendered images. Setting " +
                          "this to non-zero values allows you to distribute rendering across " +
                          "multiple machines and recombine the results later.")
-parser.add_argument('--num_images', default=2, type=int,
+parser.add_argument('--num_images', default=1, type=int,
                     help="The number of images to render")
 parser.add_argument('--filename_prefix', default='paired',
                     help="This prefix will be prepended to the rendered images and JSON scenes")
@@ -179,7 +179,7 @@ def main(args):
     for i in range(args.num_images):
         img_features, pair_features, index = pair_creator.create_pair_features()
         scene_path = render_image(img_features, pair_features,
-                                  i + args.start_idx,pair_creator,
+                                  i + args.start_idx, pair_creator,
                                   args)
         all_scene_paths.append(scene_path)
 
@@ -204,6 +204,12 @@ def main(args):
 
 class PairCreator:
     def __init__(self, args):
+        self.shape_color_combos = None
+
+        if args.shape_color_combos_json is not None:
+            with open(args.shape_color_combos_json, 'r') as f:
+                self.shape_color_combos = json.load(f)
+
         with open(args.properties_json, 'r') as f:
             # Properties
             properties = json.load(f)
@@ -233,9 +239,17 @@ class PairCreator:
             self.features_to_exchange = ['color', 'material', 'shape', 'size', 'x', 'y']
 
     def create_random_features(self):
-        img_features = Features(color=random.choice(self.color_name_to_rgba),
+        shape = random.choice(self.object_mapping)
+        if self.shape_color_combos is None:
+            color = random.choice(self.color_name_to_rgba)
+        else:
+            color_name = random.choice(self.shape_color_combos[shape[1]])
+            color_rgba = self.color_name_to_rgba_dict[color_name]
+            color = (color_name, color_rgba)
+
+        img_features = Features(color=color,
                                 material=random.choice(self.material_mapping),
-                                shape=random.choice(self.object_mapping),
+                                shape=shape,
                                 size=random.choice(self.size_mapping),
                                 x=random.uniform(*self.x_span),
                                 y=random.uniform(*self.y_span),
@@ -282,6 +296,10 @@ class Features:
         self.shape = shape
         self.material = material
         self.color = color
+
+    def __str__(self):
+        return " ".join([str(value) for value in
+                         [self.orientation, self.y, self.x, self.size, self.shape, self.material, self.color]])
 
 
 def render_image(img_features,
@@ -431,101 +449,106 @@ def render_image(img_features,
                 print(e)
         scenes_struct.append(scene_struct)
 
-    output_image = os.path.join(args.output_image_dir, '%s_%06d.png' % ('scene', output_index))
-    # Load the main blendfile
-    bpy.ops.wm.open_mainfile(filepath=args.base_scene_blendfile)
-    # Load materials
-    utils.load_materials(args.material_dir)
-    # Set render arguments so we can get pixel coordinates later.
-    # We use functionality specific to the CYCLES renderer so BLENDER_RENDER
-    # cannot be used.
-    render_args = bpy.context.scene.render
-    render_args.engine = "CYCLES"
-    render_args.filepath = output_image
-    render_args.resolution_x = args.width
-    render_args.resolution_y = args.height
-    render_args.resolution_percentage = 100
-    render_args.tile_x = args.render_tile_size
-    render_args.tile_y = args.render_tile_size
+    features_img = {k: v for k, v in features.items() if k != 'pair'}
+    features_pair = {k: v for k, v in features.items() if k != 'img'}
+    scene_features = {'img': features_img, 'pair': features_pair}
 
-    if args.use_gpu == 1:
-        cycles_prefs = bpy.context.user_preferences.addons['cycles'].preferences
-        cycles_prefs.compute_device_type = 'CUDA'
+    for scene_name, scene_features in scene_features.items():
+        output_image = os.path.join(args.output_image_dir, '%s_%s_%06d.png' % ('scene', scene_name, output_index))
+        # Load the main blendfile
+        bpy.ops.wm.open_mainfile(filepath=args.base_scene_blendfile)
+        # Load materials
+        utils.load_materials(args.material_dir)
+        # Set render arguments so we can get pixel coordinates later.
+        # We use functionality specific to the CYCLES renderer so BLENDER_RENDER
+        # cannot be used.
+        render_args = bpy.context.scene.render
+        render_args.engine = "CYCLES"
+        render_args.filepath = output_image
+        render_args.resolution_x = args.width
+        render_args.resolution_y = args.height
+        render_args.resolution_percentage = 100
+        render_args.tile_x = args.render_tile_size
+        render_args.tile_y = args.render_tile_size
 
-    # Some CYCLES-specific stuff
-    bpy.dataset.worlds['World'].cycles.sample_as_light = True
-    bpy.context.scene.cycles.blur_glossy = 2.0
-    bpy.context.scene.cycles.samples = args.render_num_samples
-    bpy.context.scene.cycles.transparent_min_bounces = args.render_min_bounces
-    bpy.context.scene.cycles.transparent_max_bounces = args.render_max_bounces
+        if args.use_gpu == 1:
+            cycles_prefs = bpy.context.user_preferences.addons['cycles'].preferences
+            cycles_prefs.compute_device_type = 'CUDA'
 
-    if args.use_gpu == 1:
-        bpy.context.scene.cycles.device = 'GPU'
+        # Some CYCLES-specific stuff
+        bpy.data.worlds['World'].cycles.sample_as_light = True
+        bpy.context.scene.cycles.blur_glossy = 2.0
+        bpy.context.scene.cycles.samples = args.render_num_samples
+        bpy.context.scene.cycles.transparent_min_bounces = args.render_min_bounces
+        bpy.context.scene.cycles.transparent_max_bounces = args.render_max_bounces
 
-    # This will give ground-truth information about the scene and its objects
-    scene_struct = {
-        'image_index': output_index,
-        'image_filename': os.path.basename(output_image),
-        'objects': [],
-        'directions': {},
-    }
+        if args.use_gpu == 1:
+            bpy.context.scene.cycles.device = 'GPU'
 
-    # Put a plane on the ground so we can compute cardinal directions
-    bpy.ops.mesh.primitive_plane_add(radius=5)
-    plane = bpy.context.object
+        # This will give ground-truth information about the scene and its objects
+        scene_struct = {
+            'image_index': output_index,
+            'image_filename': os.path.basename(output_image),
+            'objects': [],
+            'directions': {},
+        }
 
-    # Add random jitter to camera position
-    if args.camera_jitter > 0:
-        for i, jitter in enumerate(camera_jitter):
-            bpy.dataset.objects['Camera'].location[i] += jitter
+        # Put a plane on the ground so we can compute cardinal directions
+        bpy.ops.mesh.primitive_plane_add(radius=5)
+        plane = bpy.context.object
 
-    # Figure out the left, up, and behind directions along the plane and record
-    # them in the scene structure
-    camera = bpy.dataset.objects['Camera']
-    plane_normal = plane.dataset.vertices[0].normal
-    cam_behind = camera.matrix_world.to_quaternion() * Vector((0, 0, -1))
-    cam_left = camera.matrix_world.to_quaternion() * Vector((-1, 0, 0))
-    cam_up = camera.matrix_world.to_quaternion() * Vector((0, 1, 0))
-    plane_behind = (cam_behind - cam_behind.project(plane_normal)).normalized()
-    plane_left = (cam_left - cam_left.project(plane_normal)).normalized()
-    plane_up = cam_up.project(plane_normal).normalized()
+        # Add random jitter to camera position
+        if args.camera_jitter > 0:
+            for i, jitter in enumerate(camera_jitter):
+                bpy.data.objects['Camera'].location[i] += jitter
 
-    # Delete the plane; we only used it for normals anyway. The base scene file
-    # contains the actual ground plane.
-    utils.delete_object(plane)
+        # Figure out the left, up, and behind directions along the plane and record
+        # them in the scene structure
+        camera = bpy.data.objects['Camera']
+        plane_normal = plane.data.vertices[0].normal
+        cam_behind = camera.matrix_world.to_quaternion() * Vector((0, 0, -1))
+        cam_left = camera.matrix_world.to_quaternion() * Vector((-1, 0, 0))
+        cam_up = camera.matrix_world.to_quaternion() * Vector((0, 1, 0))
+        plane_behind = (cam_behind - cam_behind.project(plane_normal)).normalized()
+        plane_left = (cam_left - cam_left.project(plane_normal)).normalized()
+        plane_up = cam_up.project(plane_normal).normalized()
 
-    # Save all six axis-aligned directions in the scene struct
-    scene_struct['directions']['behind'] = tuple(plane_behind)
-    scene_struct['directions']['front'] = tuple(-plane_behind)
-    scene_struct['directions']['left'] = tuple(plane_left)
-    scene_struct['directions']['right'] = tuple(-plane_left)
-    scene_struct['directions']['above'] = tuple(plane_up)
-    scene_struct['directions']['below'] = tuple(-plane_up)
+        # Delete the plane; we only used it for normals anyway. The base scene file
+        # contains the actual ground plane.
+        utils.delete_object(plane)
 
-    # Add random jitter to lamp positions
-    if args.key_light_jitter > 0:
-        for i, jitter in enumerate(key_light_jitter):
-            bpy.dataset.objects['Lamp_Key'].location[i] += jitter
-    if args.back_light_jitter > 0:
-        for i, jitter in enumerate(back_light_jitter):
-            bpy.dataset.objects['Lamp_Back'].location[i] += jitter
-    if args.fill_light_jitter > 0:
-        for i, jitter in enumerate(fill_light_jitter):
-            bpy.dataset.objects['Lamp_Fill'].location[i] += jitter
+        # Save all six axis-aligned directions in the scene struct
+        scene_struct['directions']['behind'] = tuple(plane_behind)
+        scene_struct['directions']['front'] = tuple(-plane_behind)
+        scene_struct['directions']['left'] = tuple(plane_left)
+        scene_struct['directions']['right'] = tuple(-plane_left)
+        scene_struct['directions']['above'] = tuple(plane_up)
+        scene_struct['directions']['below'] = tuple(-plane_up)
 
-    # Now make some random objects
-    object, blender_object = add_objects(features[img], args, camera)
+        # Add random jitter to lamp positions
+        if args.key_light_jitter > 0:
+            for i, jitter in enumerate(key_light_jitter):
+                bpy.data.objects['Lamp_Key'].location[i] += jitter
+        if args.back_light_jitter > 0:
+            for i, jitter in enumerate(back_light_jitter):
+                bpy.data.objects['Lamp_Back'].location[i] += jitter
+        if args.fill_light_jitter > 0:
+            for i, jitter in enumerate(fill_light_jitter):
+                bpy.data.objects['Lamp_Fill'].location[i] += jitter
 
-    # Render the scene and dump the scene dataset structure
-    scene_struct['objects'] = object
-    # scene_struct['relationships'] = compute_all_relationships(scene_struct)
-    while True:
-        try:
-            bpy.ops.render.render(write_still=True)
-            break
-        except Exception as e:
-            print(e)
-    scenes_struct.append(scene_struct)
+        # Now make some random objects
+        object, blender_object = add_objects(scene_features, args, camera)
+
+        # Render the scene and dump the scene dataset structure
+        scene_struct['objects'] = object
+        # scene_struct['relationships'] = compute_all_relationships(scene_struct)
+        while True:
+            try:
+                bpy.ops.render.render(write_still=True)
+                break
+            except Exception as e:
+                print(e)
+        scenes_struct.append(scene_struct)
 
     with open(output_scene, 'w') as f:
         json.dump(scenes_struct, f, indent=2)
@@ -573,6 +596,52 @@ def add_object(features: Features, args, camera):
         'pixel_coords': pixel_coords,
         'color': color_name,
     })
+
+    return objects, blender_objects
+
+
+def add_objects(features, args, camera):
+    """
+    Add random objects to the current blender scene
+    """
+    objects = []
+    blender_objects = []
+    for feature in features.values():
+
+        # Choose a random size
+        size_name, r = feature.size
+        obj_name, obj_name_out = feature.shape
+        color_name, rgba = feature.color
+        mat_name, mat_name_out = feature.material
+        x = feature.x
+        y = feature.y
+
+        # For cube, adjust the size a bit
+        if obj_name == 'Cube':
+            r /= math.sqrt(2)
+
+        # Choose random orientation for the object.
+        theta = 360.0 * feature.orientation
+
+        # Actually add the object to the scene
+        utils.add_object(args.shape_dir, obj_name, r, (x, y), theta=theta)
+        obj = bpy.context.object
+        blender_objects.append(obj)
+
+        # Attach a random material
+        utils.add_material(mat_name, Color=rgba)
+
+        # Record dataset about the object in the scene dataset structure
+        pixel_coords = utils.get_camera_coords(camera, obj.location)
+        objects.append({
+            'shape': obj_name_out,
+            'size': size_name,
+            'material': mat_name_out,
+            '3d_coords': tuple(obj.location),
+            'rotation': theta,
+            'pixel_coords': pixel_coords,
+            'color': color_name,
+        })
 
     return objects, blender_objects
 

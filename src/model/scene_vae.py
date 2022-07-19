@@ -270,4 +270,4 @@ class ClevrVAE(pl.LightningModule):
         else:
             raise KeyError
 
-        return l1 + l2 + self.kld_coef * kld, l1, l2, self.kld_coef * kld
+        return self.kld_coef * kld, l1, l2, self.kld_coef * kld
