@@ -19,7 +19,7 @@ from argparse import ArgumentParser
 # ------------------------------------------------------------
 
 DEFAULT_SEED = 42
-DEFAULT_DATASET_PATH = './dataset/dataset/'
+DEFAULT_DATASET_PATH = './dataset/data/'
 DEFAULT_IMAGES_DIR_PATH = os.path.join(DEFAULT_DATASET_PATH, 'images')
 DEFAULT_SCENES_DIR_PATH = os.path.join(DEFAULT_DATASET_PATH, 'scenes')
 DEFAULT_LOGGER_DIR_PATH = './'
